@@ -178,9 +178,14 @@ If live Kathmandu observed coverage is too sparse for a strong replay sample, a 
 
 As of April 28, 2026:
 
-- `OPENAQ_API_KEY` was not present in the local execution environment, so live OpenAQ key validation and live Kathmandu coverage measurement were blocked.
-- OpenAQ parser and coverage reports were validated offline with fixtures.
+- `OPENAQ_API_KEY` was added to local `.env`, which is ignored by Git.
+- Live OpenAQ key validation passed after loading `.env`.
+- Live OpenAQ metadata discovery found 52 Kathmandu-bounds locations and 256 sensors.
+- Live OpenAQ coverage sampling found 1 fresh station and 4 recent stations.
+- The recommended live dashboard mode is currently `RECENT_OBSERVED` with medium confidence.
+- OpenAQ parser and coverage reports remain validated offline with fixtures.
 - Live Open-Meteo AQ validation passed with all approved modeled fallback variables available for Kathmandu center.
+- Generated live reports are kept under ignored `tmp/` paths and are not committed.
 - The implementation introduced no database writes, Kafka publishing, Docker requirements, API endpoints, forecasting logic, or frontend behavior.
 
 ## Primary Documentation Checked

@@ -18,7 +18,7 @@ All meaningful project changes are recorded here so future Codex sessions can re
 - `tests/unit/test_source_validation.py`: Added offline unit tests for OpenAQ normalization, modeled AQ normalization, and coverage-mode priority logic.
 - `docs/data-source-validation.md`: Added manual source-validation workflow, expected outputs, coverage-mode interpretation, and replay dataset strategy.
 - `docs/phase-summaries/PHASE-01-summary.md`: Added the Phase 01 completion summary.
-- `CHANGELOG.md`: Recorded Phase 01 implementation, verification, blocked checks, and plan deviations.
+- `CHANGELOG.md`: Recorded Phase 01 implementation, verification, live OpenAQ closure results, and plan deviations.
 
 ### Reason
 
@@ -41,6 +41,9 @@ Future phases can build sensor-based OpenAQ ingestion against normalized station
 - `python scripts/check_openmeteo_aq.py`: initially failed in the sandbox due DNS/network restriction, then passed with approved network escalation and returned `MODELED_BASELINE` with all requested variables available.
 - `OPENAQ_API_KEY` environment check: blocked live OpenAQ validation because the key was not present in the environment.
 - `python scripts/check_openaq_coverage.py --metadata-only`: exited 2 with the expected message that `OPENAQ_API_KEY` is required for live OpenAQ validation calls.
+- `set -a; source .env; set +a; python scripts/sync_openaq_metadata.py --dry-run --output tmp/openaq-metadata.json`: passed with approved network escalation after the OpenAQ key was added to local `.env`; discovered 52 Kathmandu-bounds locations and 256 sensors.
+- `set -a; source .env; set +a; python scripts/check_openaq_coverage.py --modeled-available --output tmp/openaq-coverage.json`: passed with approved network escalation; measured 1 fresh station, 4 recent stations, and `recommended_coverage_mode=RECENT_OBSERVED`.
+- `python -m json.tool tmp/openaq-metadata.json` and `python -m json.tool tmp/openaq-coverage.json`: passed; generated reports are valid JSON and remain uncommitted under ignored `tmp/`.
 
 ### Plan changes
 
@@ -52,7 +55,7 @@ Future phases can build sensor-based OpenAQ ingestion against normalized station
 
 ### Phase result
 
-Phase 01 implementation is complete except for live OpenAQ key and live Kathmandu observed coverage validation, which are blocked by missing local `OPENAQ_API_KEY`. The next phase is safe to start after an operator either provides the key and records live coverage output or accepts the documented credential block.
+Phase 01 implementation and live OpenAQ closure are complete. Live coverage is currently sparse but usable as `RECENT_OBSERVED`: 1 fresh station, 4 recent stations, and modeled fallback available. The next phase is safe to start.
 
 ## PHASE-00 Codex Governance and Repository Contract - 2026-04-28
 

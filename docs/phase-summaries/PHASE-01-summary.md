@@ -21,7 +21,9 @@ Phase 01 is a source-validation-only phase.
 
 No Docker services, database schema, TimescaleDB writes, Kafka topics, Spark jobs, Airflow DAGs, FastAPI endpoints, forecasting logic, or frontend views were introduced.
 
-OpenAQ live validation is blocked in this local environment because `OPENAQ_API_KEY` is not set. OpenAQ parser behavior and sparse coverage reporting are validated offline with fixtures.
+OpenAQ live validation has passed after `OPENAQ_API_KEY` was added to local `.env`. Live metadata discovery found 52 Kathmandu-bounds locations and 256 sensors. Live coverage sampling found 1 fresh station and 4 recent stations, so the current recommended mode is `RECENT_OBSERVED` with medium confidence.
+
+The local `.env` file remains ignored by Git. Generated live validation reports are under ignored `tmp/` paths and are not committed.
 
 Open-Meteo modeled AQ validation was run live with approved network escalation and returned all requested modeled fallback variables for Kathmandu center with `coverage_mode=MODELED_BASELINE`.
 
@@ -61,12 +63,26 @@ if [ -n "${OPENAQ_API_KEY:-}" ]; then echo OPENAQ_API_KEY_PRESENT; else echo OPE
 
 python scripts/check_openaq_coverage.py --metadata-only
 # exited 2; expected without OPENAQ_API_KEY
+
+set -a; source .env; set +a
+python scripts/sync_openaq_metadata.py --dry-run --output tmp/openaq-metadata.json
+# passed with approved network escalation; 52 locations and 256 sensors discovered
+
+set -a; source .env; set +a
+python scripts/check_openaq_coverage.py --modeled-available --output tmp/openaq-coverage.json
+# passed with approved network escalation; 1 fresh station, 4 recent stations, RECENT_OBSERVED
+
+python -m json.tool tmp/openaq-metadata.json
+# passed
+
+python -m json.tool tmp/openaq-coverage.json
+# passed
 ```
 
 ## Exit criteria verification
 
-- [x] All in-scope tasks are complete or explicitly documented as deferred within this phase: scripts, docs, fixtures, and tests were added; live OpenAQ validation is blocked by missing key.
-- [x] Relevant verification commands were run or blocked reasons were documented: required help commands and unit tests passed; live Open-Meteo passed; live OpenAQ blocked by missing `OPENAQ_API_KEY`.
+- [x] All in-scope tasks are complete: scripts, docs, fixtures, tests, live OpenAQ validation, and live Open-Meteo validation were completed.
+- [x] Relevant verification commands were run: required help commands and unit tests passed; live OpenAQ and live Open-Meteo validations passed.
 - [x] `CHANGELOG.md` was updated: Phase 01 entry added.
 - [x] `docs/phase-summaries/PHASE-01-summary.md` was written.
 - [x] No future-phase work was introduced: no Docker, database, Kafka, API, forecasting, or frontend implementation was added.
@@ -77,7 +93,7 @@ python scripts/check_openaq_coverage.py --metadata-only
 - Pytest initially failed with `ModuleNotFoundError: No module named 'scripts'` because the repository skeleton had no Python package/test path setup. Added `scripts/__init__.py` and `tests/conftest.py`.
 - Live Open-Meteo validation initially failed inside the sandbox due DNS/network restriction. Re-ran the same command with approved network escalation and it passed.
 - Git staging initially failed because `.git/index.lock` could not be created under the sandbox. Re-ran the commit command with approved escalation and committed the implementation milestone.
-- Live OpenAQ validation could not be run because `OPENAQ_API_KEY` is missing from the environment. This is documented as a credential block, not hidden as a successful coverage check.
+- Live OpenAQ validation initially could not be run because `OPENAQ_API_KEY` was missing from the environment. The key was then added to local `.env`, live validation was rerun, and the result was documented.
 
 ## Deviations from the phase plan
 
@@ -88,8 +104,7 @@ python scripts/check_openaq_coverage.py --metadata-only
 
 ## Known issues and technical debt
 
-- Severity: Medium. Live OpenAQ API key validation remains unverified until `OPENAQ_API_KEY` is provided locally.
-- Severity: Medium. Live Kathmandu observed coverage remains unknown until OpenAQ live validation is run with credentials.
+- Severity: Medium. Live Kathmandu observed coverage is sparse at this point in time: 1 fresh station and 4 recent stations. Later ingestion and dashboard phases must degrade to `RECENT_OBSERVED` or fallback modes instead of assuming dense live coverage.
 - Severity: Low. The Phase 01 HTTP client is dependency-free and suitable for scripts, but future service clients should follow the system overview's `httpx` standard with service logging and health reporting.
 - Severity: Low. The current coverage report samples a capped number of sensors by default to avoid excessive API calls; operators can raise `--max-sensors` when performing a full audit.
 
@@ -98,7 +113,7 @@ python scripts/check_openaq_coverage.py --metadata-only
 - OpenAQ ingestion must remain sensor-based. Use the normalized `openaq_location_id` and `openaq_sensor_id` model from Phase 01 as the basis for the later `station_sensors` registry.
 - Open-Meteo AQ is modeled fallback only. It must be stored separately in later phases and never labeled as observed.
 - Demo replay strategy is historical or fixture data replayed through Kafka/Spark in later phases, not frontend-only fake data.
-- Live OpenAQ coverage should be rerun once `OPENAQ_API_KEY` is available and the resulting JSON should be kept out of Git if it contains operational details that should not be committed.
+- Live OpenAQ coverage should be rerun before Phase 05 ingestion because public sensor freshness can change. Keep generated JSON reports out of Git.
 
 ## How to resume from scratch
 
