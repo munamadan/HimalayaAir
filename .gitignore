@@ -28,3 +28,8 @@ tmp/
 .idea/
 .vscode/
 
+AGENTS.md
+docs/
+CHANGELOG.md
+README_PHASE_WORKFLOW.md
+prompts/
