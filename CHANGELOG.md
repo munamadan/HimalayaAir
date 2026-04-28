@@ -2,6 +2,58 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## PHASE-01 Data Reality Check and Source Validation - 2026-04-28
+
+### Files changed
+
+- `scripts/source_validation.py`: Added shared dataclasses, HTTP JSON client, OpenAQ and Open-Meteo source clients, normalization helpers, coverage-mode recommendation logic, and JSON report helpers.
+- `scripts/sync_openaq_metadata.py`: Added dry-run OpenAQ Kathmandu location and sensor discovery without database writes.
+- `scripts/check_openaq_coverage.py`: Added Kathmandu observed coverage reporting using sensor metadata or sensor measurement endpoint sampling.
+- `scripts/check_openmeteo_aq.py`: Added Open-Meteo modeled AQ availability validation labeled as `openmeteo_cams` and `modeled`.
+- `scripts/__init__.py`: Added a package marker so tests can import script utilities.
+- `fixtures/sample_openaq_location.json`: Added an offline OpenAQ locations schema fixture with nested sensors.
+- `fixtures/sample_openaq_measurement.json`: Added an offline OpenAQ sensor measurement schema fixture.
+- `fixtures/sample_openmeteo_aq.json`: Added an offline Open-Meteo AQ fixture for modeled fallback tests.
+- `tests/conftest.py`: Added minimal test path setup for the repository skeleton.
+- `tests/unit/test_source_validation.py`: Added offline unit tests for OpenAQ normalization, modeled AQ normalization, and coverage-mode priority logic.
+- `docs/data-source-validation.md`: Added manual source-validation workflow, expected outputs, coverage-mode interpretation, and replay dataset strategy.
+- `docs/phase-summaries/PHASE-01-summary.md`: Added the Phase 01 completion summary.
+- `CHANGELOG.md`: Recorded Phase 01 implementation, verification, blocked checks, and plan deviations.
+
+### Reason
+
+Phase 01 requires a repeatable source-validation workflow before ingestion or database work begins. The project must discover real OpenAQ stations and sensors, measure observed freshness honestly, validate modeled fallback availability, and document when credentials or live coverage are unavailable.
+
+### Impact
+
+Future phases can build sensor-based OpenAQ ingestion against normalized station and sensor metadata instead of hardcoded station assumptions. The modeled fallback path is explicitly separated from observed data and reports `MODELED_BASELINE` only for Open-Meteo/CAMS modeled AQ.
+
+### Verification performed
+
+- `python scripts/check_openaq_coverage.py --help`: passed.
+- `python scripts/check_openmeteo_aq.py --help`: passed.
+- `python scripts/sync_openaq_metadata.py --help`: passed.
+- `python -m py_compile scripts/source_validation.py scripts/sync_openaq_metadata.py scripts/check_openaq_coverage.py scripts/check_openmeteo_aq.py`: passed.
+- `pytest tests/unit -q`: passed with 5 tests.
+- `python scripts/sync_openaq_metadata.py --dry-run --fixture-location fixtures/sample_openaq_location.json`: passed and produced valid JSON.
+- `python scripts/check_openaq_coverage.py --fixture-location fixtures/sample_openaq_location.json --fixture-measurement fixtures/sample_openaq_measurement.json`: passed and produced valid JSON with `STATION_ONLY` for sparse observed fixture coverage.
+- `python scripts/check_openmeteo_aq.py --fixture fixtures/sample_openmeteo_aq.json`: passed and produced valid JSON with `MODELED_BASELINE`.
+- `python scripts/check_openmeteo_aq.py`: initially failed in the sandbox due DNS/network restriction, then passed with approved network escalation and returned `MODELED_BASELINE` with all requested variables available.
+- `OPENAQ_API_KEY` environment check: blocked live OpenAQ validation because the key was not present in the environment.
+- `python scripts/check_openaq_coverage.py --metadata-only`: exited 2 with the expected message that `OPENAQ_API_KEY` is required for live OpenAQ validation calls.
+
+### Plan changes
+
+- Added `scripts/source_validation.py` as a shared Phase 01 utility module so the three CLI scripts and tests use one normalization path.
+- Added `fixtures/sample_openmeteo_aq.json` to keep modeled fallback tests offline, although the phase only explicitly named OpenAQ fixtures.
+- Added `tests/conftest.py` because the repository skeleton did not yet have Python package/test path configuration.
+- No architecture changes were made.
+- No future-phase implementation was introduced.
+
+### Phase result
+
+Phase 01 implementation is complete except for live OpenAQ key and live Kathmandu observed coverage validation, which are blocked by missing local `OPENAQ_API_KEY`. The next phase is safe to start after an operator either provides the key and records live coverage output or accepts the documented credential block.
+
 ## PHASE-00 Codex Governance and Repository Contract - 2026-04-28
 
 ### Files changed
