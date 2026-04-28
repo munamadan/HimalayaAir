@@ -1,0 +1,84 @@
+{
+  "latitude": 27.75,
+  "longitude": 85.375,
+  "generationtime_ms": 1.2,
+  "utc_offset_seconds": 0,
+  "timezone": "UTC",
+  "timezone_abbreviation": "GMT",
+  "hourly_units": {
+    "time": "iso8601",
+    "pm2_5": "ug/m3",
+    "pm10": "ug/m3",
+    "carbon_monoxide": "ug/m3",
+    "nitrogen_dioxide": "ug/m3",
+    "ozone": "ug/m3",
+    "us_aqi": "US AQI",
+    "us_aqi_pm2_5": "US AQI",
+    "us_aqi_pm10": "US AQI",
+    "us_aqi_nitrogen_dioxide": "US AQI",
+    "us_aqi_ozone": "US AQI",
+    "us_aqi_carbon_monoxide": "US AQI"
+  },
+  "hourly": {
+    "time": [
+      "2026-04-28T00:00",
+      "2026-04-28T01:00",
+      "2026-04-28T02:00"
+    ],
+    "pm2_5": [
+      18.4,
+      20.1,
+      21.3
+    ],
+    "pm10": [
+      54.2,
+      56.0,
+      57.4
+    ],
+    "carbon_monoxide": [
+      310.0,
+      315.0,
+      320.0
+    ],
+    "nitrogen_dioxide": [
+      12.1,
+      11.8,
+      12.4
+    ],
+    "ozone": [
+      67.2,
+      66.9,
+      66.1
+    ],
+    "us_aqi": [
+      64,
+      68,
+      70
+    ],
+    "us_aqi_pm2_5": [
+      64,
+      68,
+      70
+    ],
+    "us_aqi_pm10": [
+      49,
+      51,
+      53
+    ],
+    "us_aqi_nitrogen_dioxide": [
+      11,
+      11,
+      12
+    ],
+    "us_aqi_ozone": [
+      31,
+      30,
+      30
+    ],
+    "us_aqi_carbon_monoxide": [
+      3,
+      3,
+      3
+    ]
+  }
+}

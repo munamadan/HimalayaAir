@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "name": "openaq-api-schema-fixture",
+    "page": 1,
+    "limit": 10,
+    "found": 1
+  },
+  "results": [
+    {
+      "value": 24.6,
+      "flagInfo": {
+        "hasFlags": false
+      },
+      "parameter": {
+        "id": 2,
+        "name": "pm2.5",
+        "units": "ug/m3",
+        "displayName": "PM2.5"
+      },
+      "period": {
+        "label": "1 hour",
+        "interval": "01:00:00",
+        "datetimeFrom": {
+          "utc": "2026-04-28T05:00:00Z",
+          "local": "2026-04-28T10:45:00+05:45"
+        },
+        "datetimeTo": {
+          "utc": "2026-04-28T06:00:00Z",
+          "local": "2026-04-28T11:45:00+05:45"
+        }
+      },
+      "coordinates": {
+        "latitude": 27.7172,
+        "longitude": 85.324
+      },
+      "sensorsId": 21001,
+      "locationsId": 11001
+    }
+  ]
+}

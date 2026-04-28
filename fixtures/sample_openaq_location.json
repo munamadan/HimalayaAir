@@ -1,0 +1,157 @@
+{
+  "meta": {
+    "name": "openaq-api-schema-fixture",
+    "page": 1,
+    "limit": 100,
+    "found": 2
+  },
+  "results": [
+    {
+      "id": 11001,
+      "name": "Schema Fixture Kathmandu Station A",
+      "locality": "Kathmandu",
+      "timezone": "Asia/Kathmandu",
+      "country": {
+        "id": 154,
+        "code": "NP",
+        "name": "Nepal"
+      },
+      "owner": {
+        "id": 501,
+        "name": "Schema Fixture Owner"
+      },
+      "provider": {
+        "id": 601,
+        "name": "Schema Fixture Provider"
+      },
+      "isMobile": false,
+      "isMonitor": true,
+      "instruments": [
+        {
+          "id": 701,
+          "name": "Schema Fixture Monitor"
+        }
+      ],
+      "sensors": [
+        {
+          "id": 21001,
+          "name": "PM2.5 sensor",
+          "parameter": {
+            "id": 2,
+            "name": "pm2.5",
+            "units": "ug/m3",
+            "displayName": "PM2.5"
+          },
+          "datetimeFirst": {
+            "utc": "2026-04-20T00:00:00Z",
+            "local": "2026-04-20T05:45:00+05:45"
+          },
+          "datetimeLast": {
+            "utc": "2026-04-28T05:40:00Z",
+            "local": "2026-04-28T11:25:00+05:45"
+          }
+        },
+        {
+          "id": 21002,
+          "name": "PM10 sensor",
+          "parameter": {
+            "id": 1,
+            "name": "pm10",
+            "units": "ug/m3",
+            "displayName": "PM10"
+          },
+          "datetimeFirst": {
+            "utc": "2026-04-20T00:00:00Z",
+            "local": "2026-04-20T05:45:00+05:45"
+          },
+          "datetimeLast": {
+            "utc": "2026-04-27T18:15:00Z",
+            "local": "2026-04-28T00:00:00+05:45"
+          }
+        }
+      ],
+      "coordinates": {
+        "latitude": 27.7172,
+        "longitude": 85.324
+      },
+      "licenses": [],
+      "bounds": [
+        85.324,
+        27.7172,
+        85.324,
+        27.7172
+      ],
+      "distance": null,
+      "datetimeFirst": {
+        "utc": "2026-04-20T00:00:00Z",
+        "local": "2026-04-20T05:45:00+05:45"
+      },
+      "datetimeLast": {
+        "utc": "2026-04-28T05:40:00Z",
+        "local": "2026-04-28T11:25:00+05:45"
+      }
+    },
+    {
+      "id": 11002,
+      "name": "Schema Fixture Kathmandu Station B",
+      "locality": "Lalitpur",
+      "timezone": "Asia/Kathmandu",
+      "country": {
+        "id": 154,
+        "code": "NP",
+        "name": "Nepal"
+      },
+      "owner": {
+        "id": 502,
+        "name": "Schema Fixture Owner"
+      },
+      "provider": {
+        "id": 602,
+        "name": "Schema Fixture Provider"
+      },
+      "isMobile": false,
+      "isMonitor": true,
+      "instruments": [],
+      "sensors": [
+        {
+          "id": 22001,
+          "name": "NO2 sensor",
+          "parameter": {
+            "id": 7,
+            "name": "no2",
+            "units": "ppm",
+            "displayName": "NO2"
+          },
+          "datetimeFirst": {
+            "utc": "2026-04-20T00:00:00Z",
+            "local": "2026-04-20T05:45:00+05:45"
+          },
+          "datetimeLast": {
+            "utc": "2026-04-26T00:00:00Z",
+            "local": "2026-04-26T05:45:00+05:45"
+          }
+        }
+      ],
+      "coordinates": {
+        "latitude": 27.667,
+        "longitude": 85.32
+      },
+      "licenses": [],
+      "bounds": [
+        85.32,
+        27.667,
+        85.32,
+        27.667
+      ],
+      "distance": null,
+      "datetimeFirst": {
+        "utc": "2026-04-20T00:00:00Z",
+        "local": "2026-04-20T05:45:00+05:45"
+      },
+      "datetimeLast": {
+        "utc": "2026-04-26T00:00:00Z",
+        "local": "2026-04-26T05:45:00+05:45"
+      }
+    }
+  ]
+}
