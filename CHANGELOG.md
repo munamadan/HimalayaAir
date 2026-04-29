@@ -2,6 +2,50 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## PHASE-07 Spark Stream Processing and Timescale Persistence - 2026-04-29
+
+### Files changed
+
+- `services/common/aqi_calculator.py`: Added a pure Python PM2.5 AQI calculator using current EPA PM2.5 breakpoints, category helpers, color helpers, unit handling, and out-of-range handling.
+- `services/spark/jobs/aq_stream_processor.py`: Added the Spark Structured Streaming processor with fixture dry-run support, Kafka JSON parsing, raw-message validation, AQI calculation, district lookup, baseline/range anomaly flags, idempotent TimescaleDB writes, station freshness updates, `pipeline_runs` recording, DLQ message construction, and best-effort processed-batch notifications.
+- `services/spark/Dockerfile`: Added a Spark 3.5.x Python runtime image for the stream processor.
+- `docker-compose.yml`: Replaced the `spark-stream` placeholder with a real `spark-submit` service, checkpoint volume, stream-profile TimescaleDB/Kafka dependencies, and stream processor environment settings.
+- `.env.example`: Added non-secret Spark processor runtime settings.
+- `shared/kafka/messages.py`: Added processed AQ batch summary schemas that preserve per-station source and observation type for WebSocket notifications.
+- `docs/kafka-message-contracts.md`: Documented `processed-aq-readings` as a batch summary notification topic with `batch_id` keys.
+- `fixtures/sample_raw_aq_batch.json`: Added a replay-labeled batch fixture for Spark dry-run verification.
+- `tests/unit/test_aqi_calculator.py`: Added AQI breakpoint, truncation, category, color, and invalid-input tests.
+- `tests/unit/test_kafka_messages.py`: Added processed AQ batch summary schema coverage.
+- `tests/integration/test_spark_batch_fixture.py`: Added fixture transformation tests for AQI, sparse baseline flags, z-score anomalies, range anomalies, DLQ construction, and processed summaries.
+
+### Reason
+
+Phase 07 requires raw AQ Kafka messages to be processed by Spark, normalized, enriched with AQI/district/anomaly metadata, persisted idempotently to `aq_readings`, reflected in station freshness, recorded in `pipeline_runs`, and surfaced through best-effort processed notifications.
+
+### Impact
+
+The stream profile now points at a real Spark job instead of a sleeping placeholder. The job can run as Spark Structured Streaming from `raw-aq-readings` and process each micro-batch through a psycopg2 `foreachBatch` write path with `ON CONFLICT DO NOTHING`. Dry-run fixture execution works without Spark, which keeps local verification fast and deterministic. Processed rows preserve `source`, `observation_type`, `coverage_mode`, and `confidence`; sparse anomaly baselines are visible as `quality_flag='insufficient_baseline'` instead of silently passing as fully scored data.
+
+### Verification performed
+
+- `pytest tests/unit/test_aqi_calculator.py -q`: passed with 4 tests.
+- `python services/spark/jobs/aq_stream_processor.py --fixture fixtures/sample_raw_aq_batch.json --dry-run`: passed and transformed 3 replay-labeled records with 1 range anomaly.
+- `python -m py_compile services/common/aqi_calculator.py services/spark/jobs/aq_stream_processor.py shared/kafka/messages.py`: passed.
+- `pytest tests/unit/test_aqi_calculator.py tests/unit/test_kafka_messages.py tests/integration/test_spark_batch_fixture.py -q`: passed with 15 tests.
+- `pytest tests/unit tests/openaq tests/weather tests/integration -q`: passed with 33 tests.
+- `docker compose --profile stream config --quiet`: passed.
+- `docker compose --profile stream up -d spark-stream || true`: failed first in the sandbox due blocked Docker socket access, then with approved Docker access failed because `bitnami/spark:3.5.1` was unavailable. After switching to the current official `spark:3.5.8-python3` image, the command downloaded the Spark image but the build failed during `pip install` because the Docker build could not resolve PyPI DNS for Python dependencies. The command is documented as blocked by Docker build network resolution; `spark-stream` did not start.
+
+### Plan changes
+
+- Used the current official Docker `spark:3.5.8-python3` image because the previous Bitnami Spark tag no longer exists on Docker Hub.
+- Kept `ProcessedAQReadingMessage` for backward compatibility and added `ProcessedAQBatchSummaryMessage` for Phase 07's batch-summary notification requirement.
+- Did not add a schema migration because `aq_readings`, `station_sensors.last_seen` targets, and `pipeline_runs` already support the Phase 07 write path.
+
+### Phase result
+
+Phase 07 implementation is complete at the code and local-test level. Required Python verification passed, stream Compose configuration passed, and the only blocked verification is starting the Docker stream service because dependency installation inside the Docker build could not reach PyPI.
+
 ## PHASE-06 Weather and Modeled AQ Fallback - 2026-04-29
 
 ### Files changed
