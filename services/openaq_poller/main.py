@@ -41,7 +41,7 @@ class OpenAQPoller:
         result: PollRunResult
 
         try:
-            sensors = self.database.fetch_active_sensors()
+            sensors = self.database.fetch_active_sensors(max_sensors=self.settings.max_sensors)
             last_success = self.database.latest_success_window_end(self.settings.pipeline_component)
             window = compute_poll_window(
                 now=utc_now(),
@@ -177,6 +177,7 @@ class OpenAQPoller:
                 "api_key_present": True,
                 "rate_limit_hits": client.rate_limit_hits,
                 "invalid_measurements": client.invalid_measurements,
+                "max_sensors": self.settings.max_sensors,
                 "sensor_errors": sensor_errors[:10],
             },
         )

@@ -21,6 +21,7 @@ class OpenAQPollerSettings:
     fallback_lookback_hours: int
     measurements_limit: int
     max_pages: int
+    max_sensors: int
     http_timeout_seconds: float
     http_retries: int
     health_host: str
@@ -41,6 +42,7 @@ class OpenAQPollerSettings:
             fallback_lookback_hours=_int_env("OPENAQ_FALLBACK_LOOKBACK_HOURS", 6),
             measurements_limit=_int_env("OPENAQ_MEASUREMENTS_LIMIT", 100),
             max_pages=_int_env("OPENAQ_MAX_PAGES", 5),
+            max_sensors=_int_env("OPENAQ_MAX_SENSORS", 0),
             http_timeout_seconds=_float_env("OPENAQ_HTTP_TIMEOUT_SECONDS", 15.0),
             http_retries=_int_env("OPENAQ_HTTP_RETRIES", 2),
             health_host=os.getenv("OPENAQ_HEALTH_HOST", "0.0.0.0"),
@@ -90,4 +92,3 @@ def _float_env(name: str, default: float) -> float:
     if parsed < 0:
         raise ValueError(f"{name} must be non-negative")
     return parsed
-

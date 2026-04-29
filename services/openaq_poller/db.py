@@ -19,7 +19,7 @@ class PollerDatabase:
     def __init__(self, database_url: str) -> None:
         self.database_url = database_url
 
-    def fetch_active_sensors(self) -> list[SensorRegistryRow]:
+    def fetch_active_sensors(self, *, max_sensors: int = 0) -> list[SensorRegistryRow]:
         try:
             with psycopg2.connect(self.database_url) as conn:
                 with conn.cursor() as cursor:
@@ -41,7 +41,9 @@ class PollerDatabase:
                           AND s.active = TRUE
                           AND ss.source = 'openaq'
                         ORDER BY ss.priority DESC, ss.id ASC
-                        """
+                        LIMIT NULLIF(%s, 0)
+                        """,
+                        (max_sensors,),
                     )
                     return [_sensor_from_row(row) for row in cursor.fetchall()]
         except (psycopg2.Error, ValueError) as exc:
@@ -145,4 +147,3 @@ def _optional_int(value: object, field_name: str) -> int | None:
         return int(str(value))
     except ValueError as exc:
         raise ValueError(f"{field_name} must be numeric") from exc
-
