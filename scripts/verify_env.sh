@@ -49,7 +49,7 @@ services_for_profile() {
       echo "timescaledb weather-poller openmeteo-aq-poller"
       ;;
     observed)
-      echo "kafka openaq-poller"
+      echo "timescaledb kafka openaq-poller"
       ;;
     demo)
       echo "kafka replay-publisher"

@@ -39,7 +39,7 @@ x-airflow-common: &airflow-common
 services:
   timescaledb:
     image: timescale/timescaledb-ha:pg16
-    profiles: ["core", "full"]
+    profiles: ["core", "observed", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -62,7 +62,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    profiles: ["core", "full"]
+    profiles: ["core", "observed", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -264,11 +264,43 @@ services:
         condition: service_healthy
 
   openaq-poller:
-    <<: *python-placeholder
+    build:
+      context: .
+      dockerfile: services/openaq_poller/Dockerfile
     profiles: ["observed", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    environment:
+      SERVICE_NAME: openaq-poller
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OPENAQ_API_KEY: ${OPENAQ_API_KEY:-}
+      SYNC_DATABASE_URL: ${SYNC_DATABASE_URL:-postgresql://himalayaair:himalayaair@timescaledb:5432/himalayaair}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      OPENAQ_HEALTH_HOST: 0.0.0.0
+      OPENAQ_HEALTH_PORT: 9090
+      OPENAQ_POLL_INTERVAL_SECONDS: ${OPENAQ_POLL_INTERVAL_SECONDS:-300}
+      OPENAQ_POLL_OVERLAP_MINUTES: ${OPENAQ_POLL_OVERLAP_MINUTES:-10}
+      OPENAQ_FALLBACK_LOOKBACK_HOURS: ${OPENAQ_FALLBACK_LOOKBACK_HOURS:-6}
+      OPENAQ_MEASUREMENTS_LIMIT: ${OPENAQ_MEASUREMENTS_LIMIT:-100}
+      OPENAQ_MAX_PAGES: ${OPENAQ_MAX_PAGES:-5}
+      OPENAQ_HTTP_TIMEOUT_SECONDS: ${OPENAQ_HTTP_TIMEOUT_SECONDS:-15}
+      OPENAQ_HTTP_RETRIES: ${OPENAQ_HTTP_RETRIES:-2}
+    ports:
+      - "${OPENAQ_POLLER_HOST_PORT:-9090}:9090"
     depends_on:
+      timescaledb:
+        condition: service_healthy
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9090/health', timeout=2).read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    mem_limit: 384m
+    mem_reservation: 192m
 
   replay-publisher:
     <<: *python-placeholder
