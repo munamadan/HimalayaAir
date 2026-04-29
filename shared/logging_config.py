@@ -9,6 +9,8 @@ import structlog
 
 def configure_logging(*, service_name: str, log_format: str = "json") -> None:
     logging.basicConfig(format="%(message)s", stream=sys.stdout, level=logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
@@ -35,4 +37,3 @@ def configure_logging(*, service_name: str, log_format: str = "json") -> None:
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     return structlog.get_logger(name)
-

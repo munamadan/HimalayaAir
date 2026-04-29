@@ -60,6 +60,7 @@ class PollerDatabase:
                         WHERE component = %s
                           AND status IN ('success', 'partial')
                           AND metadata ? 'window_to'
+                          AND COALESCE(NULLIF(metadata->>'sensors_attempted', '')::INTEGER, 0) > 0
                         ORDER BY run_at DESC
                         LIMIT 1
                         """,
