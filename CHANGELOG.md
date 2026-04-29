@@ -2,6 +2,55 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## PHASE-05 OpenAQ Sensor-Based Live Ingestion - 2026-04-29
+
+### Files changed
+
+- `services/openaq_poller/`: Added the OpenAQ live poller package with environment settings, database registry access, sensor measurement client, Kafka publishing, dry-run support, poll-window handling, and `/health` serving on port `9090`.
+- `services/openaq_poller/Dockerfile`: Added a buildable runtime image for the observed-profile poller.
+- `docker-compose.yml`: Replaced the OpenAQ placeholder with the real poller service, healthcheck, database/Kafka dependencies, port `9090`, and poller environment settings.
+- `.env.example`: Added OpenAQ poller runtime and host-port settings without secrets.
+- `requirements.txt`: Added `httpx` for service-grade HTTP client behavior.
+- `scripts/source_validation.py`: Kept recognized OpenAQ AQ sensors pollable when current OpenAQ location metadata omits `datetimeLast`.
+- `scripts/verify_env.sh`: Included TimescaleDB in observed-profile health expectations because the poller reads `station_sensors` and writes `pipeline_runs`.
+- `scripts/verify_kafka.py`: Added fixtureless `--max-messages` validation so Phase 05 can verify existing `raw-aq-readings` messages.
+- `shared/logging_config.py`: Suppressed noisy third-party HTTP logs so service output remains structured.
+- `tests/openaq/`: Added focused tests for poll windows, observed message provenance, de-duplication, 429 retry handling, and run status mapping.
+- `tests/unit/test_source_validation.py`: Added coverage for pollable AQ sensors without last-seen metadata.
+- `docs/phase-summaries/PHASE-05-summary.md`: Added the Phase 05 completion summary.
+- `CHANGELOG.md`: Recorded Phase 05 implementation and verification.
+
+### Reason
+
+Phase 05 requires sensor-based OpenAQ live ingestion through the corrected `station_sensors` registry, server-side API key usage, normalized observed Kafka messages, visible poller health, and `pipeline_runs` status recording.
+
+### Impact
+
+The observed profile now has a real OpenAQ poller. It queries active OpenAQ sensors from TimescaleDB, polls `/v3/sensors/{sensor_id}/measurements`, publishes `RawAQReadingMessage` records to `raw-aq-readings` with `source=openaq_live` and `observation_type=observed`, records run metadata in `pipeline_runs`, and reports health at `/health`. A capped live verification populated the local registry with 52 stations and 256 sensors, found 4 active station/sensor pairs, and published 10 observed PM2.5 messages to Kafka.
+
+### Verification performed
+
+- `python -m py_compile services/openaq_poller/*.py scripts/verify_kafka.py`: passed.
+- `docker compose --profile observed config --quiet`: failed first because the observed profile did not include the TimescaleDB dependency, then passed after adding TimescaleDB and Kafka to the observed profile dependencies.
+- `pytest tests/openaq -q`: passed with 7 tests.
+- `pytest tests/unit tests/openaq -q`: passed with 19 tests.
+- `python -m services.openaq_poller.main --once --dry-run`: failed first in the sandbox due blocked local DB access, then passed with approved DB access; after registry sync it passed with 4 sensors discovered and OpenAQ calls skipped because no API key was loaded into that shell.
+- `curl -fsS http://localhost:9090/health || true`: failed when no poller process was running, then passed after starting the poller dry-run loop and returned `status=ok`.
+- `python scripts/verify_kafka.py --topic raw-aq-readings --max-messages 10 || true`: failed first in the sandbox due blocked Kafka socket access, then passed with approved Kafka access and validated replay plus live observed OpenAQ messages.
+- `python scripts/verify_kafka.py --fixture fixtures/sample_raw_aq_message.json`: failed first in the sandbox due blocked Kafka socket access, then passed with approved Kafka access.
+- `set -a; source .env; set +a; python scripts/sync_openaq_metadata.py --write-db --output tmp/openaq-phase05-metadata-write.json`: failed first in the sandbox due DNS/network restriction, then passed with approved network and DB access; wrote 52 stations and 256 sensors.
+- `OPENAQ_MAX_SENSORS=5 OPENAQ_MEASUREMENTS_LIMIT=10 OPENAQ_MAX_PAGES=1 OPENAQ_FALLBACK_LOOKBACK_HOURS=24 OPENAQ_POLL_OVERLAP_MINUTES=1440 python -m services.openaq_poller.main --once`: passed with approved network, DB, and Kafka access; published 10 `openaq_live` / `observed` messages.
+
+### Plan changes
+
+- Added `OPENAQ_MAX_SENSORS` so live verification and laptop runs can cap OpenAQ requests without changing the sensor-based model.
+- Updated OpenAQ metadata normalization because the current OpenAQ locations response can omit sensor last-seen timestamps while sensor measurement endpoints remain pollable.
+- Ignored zero-sensor runs when choosing the next poll watermark so an empty registry does not shorten the first real polling window.
+
+### Phase result
+
+Phase 05 is complete. Live observed OpenAQ readings were published to Kafka through the sensor registry model, poller health is available, `pipeline_runs` records poll status, required verification passed after documented local approvals, and Phase 06 is safe to start.
+
 ## PHASE-04 Kafka Topics and Shared Libraries - 2026-04-29
 
 ### Files changed
