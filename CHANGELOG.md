@@ -2,6 +2,62 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## PHASE-03 Database Schema and Seed Data - 2026-04-29
+
+### Files changed
+
+- `requirements.txt`: Added Alembic, SQLAlchemy, and psycopg2 migration dependencies.
+- `alembic.ini`: Added Alembic configuration for the local TimescaleDB default.
+- `db/alembic/env.py`: Added environment-driven sync DB URL resolution for migrations.
+- `db/alembic/versions/0001_extensions_core_schema.py`: Added TimescaleDB/PostGIS extensions and core station, sensor, district, and weather-location tables.
+- `db/alembic/versions/0002_timeseries_readings.py`: Added provenance-aware AQ, weather, and modeled-AQ hypertables.
+- `db/alembic/versions/0003_forecast_operations.py`: Added forecast, pipeline, coverage, and monthly report tables.
+- `db/alembic/versions/0004_backfill_fire_events.py`: Added backfill manifest and fire event tables.
+- `db/alembic/versions/0005_continuous_aggregates.py`: Added `aq_hourly`, `aq_daily`, and `valley_daily` continuous aggregates with refresh policies.
+- `scripts/db_config.py`: Added shared sync database URL normalization.
+- `scripts/seed_weather_locations.py`: Added dry-run and idempotent seed support for five Kathmandu Valley weather locations.
+- `scripts/verify_db_schema.py`: Added schema verification for extensions, tables, hypertables, continuous aggregates, indexes, checks, and Timescale unique-index rules.
+- `scripts/sync_openaq_metadata.py`: Added optional `--write-db` support for upserting OpenAQ stations and station_sensors.
+- `README.md`: Replaced detailed phase workflow text with a brief general project description, per user request.
+- `AGENTS.md`: Added the rule that `README.md` must not be changed unless the user explicitly requests it.
+- `docs/phase-summaries/PHASE-03-summary.md`: Added the Phase 03 completion summary.
+- `CHANGELOG.md`: Recorded Phase 03 implementation, verification, and operational notes.
+
+### Reason
+
+Phase 03 requires a corrected database foundation for sensor-based ingestion, provenance-aware readings, modeled fallback, replay support, forecasts, pipeline observability, backfills, reports, and geospatial context.
+
+### Impact
+
+The local TimescaleDB/PostGIS database now upgrades through Alembic to a schema that supports the approved architecture. AQ-related hypertables preserve source and observation type, modeled AQ remains separate from observed readings, and all hypertable primary keys include the `timestamp` partition column. Weather location seed data can be previewed or written idempotently.
+
+### Verification performed
+
+- `python -m py_compile scripts/db_config.py scripts/seed_weather_locations.py scripts/verify_db_schema.py scripts/sync_openaq_metadata.py db/alembic/env.py db/alembic/versions/*.py`: passed.
+- `python scripts/seed_weather_locations.py --dry-run`: passed and reported five weather seed rows.
+- `python scripts/sync_openaq_metadata.py --dry-run --fixture-location fixtures/sample_openaq_location.json`: passed and preserved dry-run metadata output.
+- `python -m pip install --user -r requirements.txt`: passed with approval; installed Alembic and Mako.
+- `docker compose --profile core up -d`: passed with approval; started TimescaleDB, Kafka, API placeholder, and frontend placeholder.
+- `alembic upgrade head`: failed in the sandbox because host access to the Docker-exposed database port was blocked.
+- `PATH="$HOME/.local/bin:$PATH" alembic upgrade head`: passed with approval and applied all five revisions through `0005_continuous_aggregates`.
+- `python scripts/verify_db_schema.py`: passed with approval and verified required schema objects.
+- `python scripts/seed_weather_locations.py --dry-run`: passed as the required Phase 03 seed verification command.
+- `python scripts/seed_weather_locations.py`: passed with approval and inserted or updated five `weather_locations` rows.
+- `python scripts/verify_db_schema.py`: passed again after seeding.
+- `pytest tests/unit -q`: passed with 5 tests.
+
+### Plan changes
+
+- Added `coverage_snapshots` because the system overview defines it as the storage point for coverage mode, confidence, modeled availability, and replay activity.
+- Added `coverage_mode` and `confidence` columns to `aq_readings`, and `observation_type` plus `coverage_mode` to `modeled_aq_readings`, to keep stored AQ provenance explicit.
+- Added a unique constraint on `weather_locations.name` so seed writes are idempotent.
+- Did not load district boundaries because the repository has no trusted district geometry fixture or source file; the schema enforces `MULTIPOLYGON` and is ready for a later explicit load.
+
+### Phase result
+
+Phase 03 is complete. The database foundation is migrated and verified, weather locations are seeded, required documentation is updated, and Phase 04 is safe to start.
+
+
 ## PHASE-02 Infrastructure Foundation - 2026-04-29
 
 ### Files changed
