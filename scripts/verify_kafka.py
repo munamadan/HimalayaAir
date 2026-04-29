@@ -6,6 +6,10 @@ import sys
 import uuid
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from shared.kafka.client import KafkaConsumeError, KafkaPublishError, consume_message, create_consumer, create_producer, produce_message
 from shared.kafka.messages import RawAQReadingMessage, load_message_fixture
 from shared.logging_config import configure_logging, get_logger
@@ -90,4 +94,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
