@@ -152,11 +152,11 @@ services:
     networks:
       - himalayaair
     command:
-      - /opt/bitnami/spark/bin/spark-submit
+      - /opt/spark/bin/spark-submit
       - --master
       - local[2]
       - --packages
-      - org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1
+      - org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.8
       - /app/services/spark/jobs/aq_stream_processor.py
     environment:
       SERVICE_NAME: spark-stream

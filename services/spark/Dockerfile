@@ -1,4 +1,4 @@
-FROM bitnami/spark:3.5.1
+FROM spark:3.5.8-python3
 
 USER root
 WORKDIR /app
@@ -11,5 +11,6 @@ COPY services /app/services
 COPY shared /app/shared
 
 ENV PYTHONPATH=/app
+ENV PYSPARK_PYTHON=python3
 
 USER 1001
