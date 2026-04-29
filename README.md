@@ -42,6 +42,19 @@ Health checks:
 ./scripts/verify_env.sh --profile full
 ```
 
+Default host ports:
+
+- TimescaleDB/PostGIS: `55432`
+- Kafka external listener: `29092`
+- API placeholder: `8000`
+- Frontend placeholder: `3000`
+- Airflow metadata PostgreSQL: `55433`
+- Airflow webserver: `8080`
+
+The database services still listen on their normal container ports inside the
+Compose network. Host database ports use higher defaults to avoid conflicts
+with local PostgreSQL installations.
+
 Kafka topic setup:
 
 ```bash

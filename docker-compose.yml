@@ -48,7 +48,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-himalayaair}
       POSTGRES_DB: ${POSTGRES_DB:-himalayaair}
     ports:
-      - "5432:5432"
+      - "${TIMESCALEDB_HOST_PORT:-55432}:5432"
     volumes:
       - timescaledb-data:/home/postgres/pgdata/data
     healthcheck:
@@ -83,7 +83,7 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_LOG_RETENTION_HOURS: 24
     ports:
-      - "29092:29092"
+      - "${KAFKA_HOST_PORT:-29092}:29092"
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
@@ -108,7 +108,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://himalayaair:himalayaair@timescaledb:5432/himalayaair}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
     ports:
-      - "8000:8000"
+      - "${API_HOST_PORT:-8000}:8000"
     depends_on:
       timescaledb:
         condition: service_healthy
@@ -130,7 +130,7 @@ services:
     networks:
       - himalayaair
     ports:
-      - "3000:80"
+      - "${FRONTEND_HOST_PORT:-3000}:80"
     depends_on:
       api:
         condition: service_healthy
@@ -178,7 +178,7 @@ services:
       POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD:-airflow}
       POSTGRES_DB: ${AIRFLOW_POSTGRES_DB:-airflow}
     ports:
-      - "5433:5432"
+      - "${AIRFLOW_POSTGRES_HOST_PORT:-55433}:5432"
     volumes:
       - airflow-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -220,7 +220,7 @@ services:
     profiles: ["batch", "full"]
     command: ["webserver"]
     ports:
-      - "8080:8080"
+      - "${AIRFLOW_WEBSERVER_HOST_PORT:-8080}:8080"
     depends_on:
       airflow-init:
         condition: service_completed_successfully
