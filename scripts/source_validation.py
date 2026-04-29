@@ -60,6 +60,8 @@ POLLUTANT_ALIASES = {
     "sulfur dioxide": "so2",
 }
 
+OPENAQ_POLLABLE_AQ_POLLUTANTS = {"pm1", "pm25", "pm10", "co", "no2", "o3", "so2"}
+
 
 class SourceValidationError(RuntimeError):
     pass
@@ -623,16 +625,17 @@ def _normalize_openaq_sensor(
     parameter = raw_sensor.get("parameter") if isinstance(raw_sensor.get("parameter"), dict) else {}
     first_seen = _datetime_text(raw_sensor.get("datetimeFirst"))
     last_seen = _datetime_text(raw_sensor.get("datetimeLast"))
+    pollutant = normalize_pollutant_name(parameter.get("name") or raw_sensor.get("name"))
     return OpenAQSensor(
         openaq_sensor_id=sensor_id,
         openaq_location_id=location_id,
         station_name=station_name,
-        pollutant=normalize_pollutant_name(parameter.get("name") or raw_sensor.get("name")),
+        pollutant=pollutant,
         parameter_id=_int_or_none(parameter.get("id")),
         unit=_text_or_none(parameter.get("units")),
         first_seen_utc=first_seen,
         last_seen_utc=last_seen,
-        active=last_seen is not None,
+        active=last_seen is not None or pollutant in OPENAQ_POLLABLE_AQ_POLLUTANTS,
     )
 
 

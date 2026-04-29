@@ -38,6 +38,36 @@ def test_normalize_openaq_locations_preserves_station_sensor_model() -> None:
     assert result.sensors[1].pollutant == "pm10"
 
 
+def test_normalize_openaq_locations_keeps_aq_sensors_pollable_without_last_seen() -> None:
+    payload = {
+        "results": [
+            {
+                "id": 11001,
+                "name": "Kathmandu Station",
+                "coordinates": {"latitude": 27.7, "longitude": 85.3},
+                "isMonitor": True,
+                "sensors": [
+                    {
+                        "id": 21001,
+                        "parameter": {"id": 2, "name": "pm2.5", "units": "ug/m3"},
+                    },
+                    {
+                        "id": 21002,
+                        "parameter": {"id": 99, "name": "temperature", "units": "c"},
+                    },
+                ],
+            }
+        ]
+    }
+
+    result = normalize_openaq_locations(payload)
+
+    assert result.sensors[0].pollutant == "pm25"
+    assert result.sensors[0].active is True
+    assert result.sensors[1].pollutant == "temperature"
+    assert result.sensors[1].active is False
+
+
 def test_normalize_openaq_measurements_labels_observed_source() -> None:
     payload = load_json_file(FIXTURES / "sample_openaq_measurement.json")
 
