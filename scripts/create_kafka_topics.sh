@@ -7,9 +7,10 @@ dry_run=false
 
 topics=(
   "raw-aq-readings:3:86400000"
-  "processed-aq-readings:1:3600000"
-  "raw-aq-readings-dlq:1:604800000"
   "weather-data:1:86400000"
+  "modeled-aq-data:1:259200000"
+  "processed-aq-readings:1:86400000"
+  "raw-aq-readings-dlq:1:604800000"
   "pipeline-events:1:86400000"
 )
 

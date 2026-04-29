@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "source": "demo_replay",
+  "observation_type": "replay",
+  "station_id": 1,
+  "sensor_id": 1,
+  "openaq_location_id": 11001,
+  "openaq_sensor_id": 21001,
+  "station_name": "Ratnapark fixture station",
+  "pollutant": "pm2.5",
+  "value": 24.6,
+  "unit": "ug/m3",
+  "timestamp": "2026-04-28T06:00:00Z",
+  "latitude": 27.7103,
+  "longitude": 85.3150,
+  "quality_flag": "raw",
+  "coverage_mode": "REPLAY_DEMO",
+  "confidence": "demo",
+  "original_timestamp": "2026-04-28T06:00:00Z",
+  "ingested_at": "2026-04-28T06:00:05Z"
+}
