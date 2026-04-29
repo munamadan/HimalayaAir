@@ -126,6 +126,7 @@ class WeatherDataMessage(KafkaMessage):
     wind_dir: float | None = Field(default=None, ge=0, le=360)
     precipitation: float | None = Field(default=None, ge=0)
     timestamp: datetime
+    quality_flag: str = Field(default="complete", min_length=1, max_length=50)
     fetched_at: datetime = Field(default_factory=utc_now)
 
     def message_key(self) -> str:
@@ -144,6 +145,7 @@ class ModeledAQDataMessage(PollutantMixin, KafkaMessage):
     timestamp: datetime
     model_run_at: datetime = Field(default_factory=utc_now)
     coverage_mode: CoverageMode = CoverageMode.MODELED_BASELINE
+    quality_flag: str = Field(default="complete", min_length=1, max_length=50)
 
     @model_validator(mode="after")
     def _require_modeled_provenance(self) -> "ModeledAQDataMessage":

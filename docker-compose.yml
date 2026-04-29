@@ -39,7 +39,7 @@ x-airflow-common: &airflow-common
 services:
   timescaledb:
     image: timescale/timescaledb-ha:pg16
-    profiles: ["core", "observed", "full"]
+    profiles: ["core", "weather", "observed", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -250,18 +250,78 @@ services:
     mem_reservation: 384m
 
   weather-poller:
-    <<: *python-placeholder
+    build:
+      context: .
+      dockerfile: services/weather_poller/Dockerfile
     profiles: ["weather", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    environment:
+      SERVICE_NAME: weather-poller
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      SYNC_DATABASE_URL: ${SYNC_DATABASE_URL:-postgresql://himalayaair:himalayaair@timescaledb:5432/himalayaair}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      WEATHER_HEALTH_HOST: 0.0.0.0
+      WEATHER_HEALTH_PORT: 9091
+      WEATHER_POLL_COMPONENTS: weather
+      WEATHER_PIPELINE_COMPONENT: weather_poller
+      WEATHER_POLL_INTERVAL_SECONDS: ${WEATHER_POLL_INTERVAL_SECONDS:-900}
+      WEATHER_FORECAST_DAYS: ${WEATHER_FORECAST_DAYS:-3}
+      WEATHER_PAST_DAYS: ${WEATHER_PAST_DAYS:-1}
+      WEATHER_MAX_LOCATIONS: ${WEATHER_MAX_LOCATIONS:-0}
+      WEATHER_PUBLISH_KAFKA: ${WEATHER_PUBLISH_KAFKA:-false}
+      OPENMETEO_HTTP_TIMEOUT_SECONDS: ${OPENMETEO_HTTP_TIMEOUT_SECONDS:-15}
+      OPENMETEO_HTTP_RETRIES: ${OPENMETEO_HTTP_RETRIES:-2}
+    ports:
+      - "${WEATHER_POLLER_HOST_PORT:-9091}:9091"
     depends_on:
       timescaledb:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9091/health', timeout=2).read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    mem_limit: 384m
+    mem_reservation: 192m
 
   openmeteo-aq-poller:
-    <<: *python-placeholder
+    build:
+      context: .
+      dockerfile: services/weather_poller/Dockerfile
     profiles: ["weather", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    environment:
+      SERVICE_NAME: openmeteo-aq-poller
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      SYNC_DATABASE_URL: ${SYNC_DATABASE_URL:-postgresql://himalayaair:himalayaair@timescaledb:5432/himalayaair}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      WEATHER_HEALTH_HOST: 0.0.0.0
+      WEATHER_HEALTH_PORT: 9092
+      WEATHER_POLL_COMPONENTS: modeled_aq
+      WEATHER_PIPELINE_COMPONENT: openmeteo_aq_poller
+      WEATHER_POLL_INTERVAL_SECONDS: ${OPENMETEO_AQ_POLL_INTERVAL_SECONDS:-1800}
+      MODELED_AQ_FORECAST_DAYS: ${MODELED_AQ_FORECAST_DAYS:-3}
+      MODELED_AQ_PAST_DAYS: ${MODELED_AQ_PAST_DAYS:-1}
+      WEATHER_MAX_LOCATIONS: ${WEATHER_MAX_LOCATIONS:-0}
+      WEATHER_PUBLISH_KAFKA: ${WEATHER_PUBLISH_KAFKA:-false}
+      OPENMETEO_HTTP_TIMEOUT_SECONDS: ${OPENMETEO_HTTP_TIMEOUT_SECONDS:-15}
+      OPENMETEO_HTTP_RETRIES: ${OPENMETEO_HTTP_RETRIES:-2}
     depends_on:
       timescaledb:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9092/health', timeout=2).read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    mem_limit: 384m
+    mem_reservation: 192m
 
   openaq-poller:
     build:

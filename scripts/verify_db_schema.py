@@ -54,6 +54,8 @@ REQUIRED_CHECKS = {
     "ck_aq_confidence",
     "ck_modeled_observation_type",
     "ck_modeled_coverage_mode",
+    "ck_weather_quality_flag",
+    "ck_modeled_quality_flag",
     "ck_coverage_mode",
     "ck_coverage_confidence",
 }
