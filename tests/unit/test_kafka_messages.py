@@ -10,6 +10,7 @@ from shared.enums import CoverageMode, ObservationType, SourceName
 from shared.kafka.messages import (
     DLQMessage,
     ModeledAQDataMessage,
+    ProcessedAQBatchSummaryMessage,
     RawAQReadingMessage,
     message_from_json,
     message_to_json,
@@ -102,6 +103,43 @@ def test_dlq_message_preserves_failure_context_and_provenance() -> None:
     assert message.message_key() == "raw-aq-readings:1:1:pm25:2026-04-28T06:00:00Z:2026-04-28T06:00:10+00:00"
 
 
+def test_processed_aq_batch_summary_preserves_station_provenance() -> None:
+    message = ProcessedAQBatchSummaryMessage.model_validate(
+        {
+            "schema_version": "1.0",
+            "batch_id": 42,
+            "processed_at": "2026-04-28T06:00:10Z",
+            "records_received": 2,
+            "records_written": 1,
+            "records_skipped_duplicate": 1,
+            "records_invalid": 0,
+            "anomaly_count": 0,
+            "coverage_mode": "REPLAY_DEMO",
+            "confidence": "demo",
+            "stations": [
+                {
+                    "station_id": 1,
+                    "station_name": "Ratnapark fixture station",
+                    "aqi": 80,
+                    "dominant_pollutant": "pm2.5",
+                    "district_id": 1,
+                    "district": "Kathmandu",
+                    "is_anomaly": False,
+                    "source": "demo_replay",
+                    "observation_type": "replay",
+                    "latitude": 27.7103,
+                    "longitude": 85.315,
+                    "timestamp": "2026-04-28T06:00:00Z",
+                }
+            ],
+        }
+    )
+
+    assert message.message_key() == "42"
+    assert message.stations[0].dominant_pollutant == "pm25"
+    assert message.to_json_bytes().startswith(b"{")
+
+
 def test_topic_definitions_include_phase_04_topics() -> None:
     names = {topic.name for topic in TOPIC_DEFINITIONS}
 
@@ -112,4 +150,3 @@ def test_topic_definitions_include_phase_04_topics() -> None:
         "processed-aq-readings",
         "raw-aq-readings-dlq",
     }.issubset(names)
-

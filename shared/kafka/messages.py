@@ -115,6 +115,60 @@ class ProcessedAQReadingMessage(PollutantMixin, KafkaMessage):
         return f"{self.station_id}:{self.sensor_id}:{self.pollutant}:{self.timestamp.isoformat()}"
 
 
+class ProcessedAQStationSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, validate_default=True)
+
+    station_id: int = Field(ge=1)
+    station_name: str | None = Field(default=None, max_length=200)
+    aqi: int | None = Field(default=None, ge=0)
+    dominant_pollutant: str = Field(min_length=1, max_length=20)
+    district_id: int | None = Field(default=None, ge=1)
+    district: str | None = Field(default=None, max_length=100)
+    is_anomaly: bool = False
+    source: SourceName
+    observation_type: ObservationType
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    timestamp: datetime
+
+    @field_validator("dominant_pollutant")
+    @classmethod
+    def _normalize_dominant_pollutant(cls, value: str) -> str:
+        return PollutantMixin(pollutant=value).pollutant
+
+    @field_validator("timestamp", mode="after")
+    @classmethod
+    def _ensure_timestamp_is_utc(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
+
+
+class ProcessedAQBatchSummaryMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, validate_default=True)
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    batch_id: int = Field(ge=0)
+    processed_at: datetime = Field(default_factory=utc_now)
+    records_received: int = Field(ge=0)
+    records_written: int = Field(ge=0)
+    records_skipped_duplicate: int = Field(ge=0)
+    records_invalid: int = Field(ge=0)
+    anomaly_count: int = Field(ge=0)
+    coverage_mode: CoverageMode
+    confidence: Confidence
+    stations: list[ProcessedAQStationSummary] = Field(default_factory=list)
+
+    @field_validator("processed_at", mode="after")
+    @classmethod
+    def _ensure_processed_at_is_utc(cls, value: datetime) -> datetime:
+        return ensure_utc(value)
+
+    def message_key(self) -> str:
+        return str(self.batch_id)
+
+    def to_json_bytes(self) -> bytes:
+        return self.model_dump_json().encode("utf-8")
+
+
 class WeatherDataMessage(KafkaMessage):
     location_id: int | None = Field(default=None, ge=1)
     location_name: str = Field(min_length=1, max_length=120)
