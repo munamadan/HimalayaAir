@@ -1,0 +1,288 @@
+name: himalayaair
+
+x-python-placeholder: &python-placeholder
+  image: python:3.12-slim
+  restart: unless-stopped
+  networks:
+    - himalayaair
+  command: ["python", "-m", "http.server", "8080", "--bind", "0.0.0.0"]
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080', timeout=2).read()"]
+    interval: 20s
+    timeout: 5s
+    retries: 5
+    start_period: 10s
+  mem_limit: 256m
+  mem_reservation: 128m
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.3-python3.11
+  restart: unless-stopped
+  networks:
+    - himalayaair
+  environment:
+    AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+    _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+    _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/plugins:/opt/airflow/plugins
+    - airflow-logs:/opt/airflow/logs
+  depends_on:
+    airflow-postgres:
+      condition: service_healthy
+
+services:
+  timescaledb:
+    image: timescale/timescaledb-ha:pg16
+    profiles: ["core", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-himalayaair}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-himalayaair}
+      POSTGRES_DB: ${POSTGRES_DB:-himalayaair}
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb-data:/home/postgres/pgdata/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    mem_limit: 1024m
+    mem_reservation: 512m
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    profiles: ["core", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    environment:
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 24
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    mem_limit: 1024m
+    mem_reservation: 512m
+
+  api:
+    image: python:3.12-slim
+    profiles: ["core", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    command: ["python", "-m", "http.server", "8000", "--bind", "0.0.0.0"]
+    environment:
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://himalayaair:himalayaair@timescaledb:5432/himalayaair}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+    ports:
+      - "8000:8000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000', timeout=2).read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    mem_limit: 256m
+    mem_reservation: 128m
+
+  frontend:
+    image: nginx:1.27-alpine
+    profiles: ["core", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    mem_limit: 256m
+    mem_reservation: 128m
+
+  spark-stream:
+    image: bitnami/spark:3.5.1
+    profiles: ["stream", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    command: ["/bin/bash", "-lc", "sleep infinity"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      SYNC_DATABASE_URL: ${SYNC_DATABASE_URL:-postgresql://himalayaair:himalayaair@timescaledb:5432/himalayaair}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "spark-submit --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    mem_limit: 1536m
+    mem_reservation: 768m
+
+  airflow-postgres:
+    image: postgres:16-alpine
+    profiles: ["batch", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    environment:
+      POSTGRES_USER: ${AIRFLOW_POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD:-airflow}
+      POSTGRES_DB: ${AIRFLOW_POSTGRES_DB:-airflow}
+    ports:
+      - "5433:5432"
+    volumes:
+      - airflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 512m
+    mem_reservation: 256m
+
+  airflow-init:
+    <<: *airflow-common
+    profiles: ["batch", "full"]
+    restart: "no"
+    entrypoint: /bin/bash
+    command:
+      - -lc
+      - |
+        set -euo pipefail
+        airflow db migrate
+        username="$${_AIRFLOW_WWW_USER_USERNAME:-airflow}"
+        if airflow users list | awk 'NR > 2 {print $2}' | grep -qx "$${username}"; then
+          echo "airflow_user: exists"
+        else
+          airflow users create \
+            --username "$${username}" \
+            --password "$${_AIRFLOW_WWW_USER_PASSWORD:-airflow}" \
+            --firstname local \
+            --lastname admin \
+            --role Admin \
+            --email admin@example.invalid
+        fi
+    mem_limit: 768m
+    mem_reservation: 384m
+
+  airflow-webserver:
+    <<: *airflow-common
+    profiles: ["batch", "full"]
+    command: ["webserver"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    mem_limit: 768m
+    mem_reservation: 384m
+
+  airflow-scheduler:
+    <<: *airflow-common
+    profiles: ["batch", "full"]
+    command: ["scheduler"]
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\" >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    mem_limit: 768m
+    mem_reservation: 384m
+
+  weather-poller:
+    <<: *python-placeholder
+    profiles: ["weather", "full"]
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+  openmeteo-aq-poller:
+    <<: *python-placeholder
+    profiles: ["weather", "full"]
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+  openaq-poller:
+    <<: *python-placeholder
+    profiles: ["observed", "full"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  replay-publisher:
+    <<: *python-placeholder
+    profiles: ["demo", "full"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+networks:
+  himalayaair:
+    driver: bridge
+
+volumes:
+  timescaledb-data:
+  kafka-data:
+  airflow-postgres-data:
+  airflow-logs:
