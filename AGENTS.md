@@ -58,8 +58,11 @@ No emojis anywhere in backend code, database migrations, scripts, tests, logs, g
 - Every fallback must be visible through logs, API metadata, health status, or stored provenance.
 - External API clients must use timeouts, retries, rate-limit handling where relevant, and typed normalized outputs.
 - Update `CHANGELOG.md` for every meaningful change.
+- Append a `CHANGELOG.md` entry when each phase is completed.
 - Write a phase completion summary before ending a phase.
 - Do not change `README.md` unless the user's latest explicit instruction asks for a README change.
+- Commit changes early and often during implementation.
+- Use lowercase commit messages unless the user explicitly requests another style.
 
 ## Approved source modes
 
