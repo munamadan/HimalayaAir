@@ -1,6 +1,6 @@
 """add quality flags for weather and modeled aq
 
-Revision ID: 0006_weather_modeled_quality_flags
+Revision ID: 0006_weather_quality_flags
 Revises: 0005_continuous_aggregates
 Create Date: 2026-04-29 00:00:05
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from alembic import op
 
-revision = "0006_weather_modeled_quality_flags"
+revision = "0006_weather_quality_flags"
 down_revision = "0005_continuous_aggregates"
 branch_labels = None
 depends_on = None
