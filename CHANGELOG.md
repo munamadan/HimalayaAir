@@ -2,6 +2,43 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## PHASE-11 Frontend Core Dashboard - 2026-04-30
+
+### Files changed
+
+- `frontend/`: Added the Vite React 18 TypeScript dashboard app with native fetch API wrapper, typed response assumptions, dashboard data hooks, reconnecting WebSocket hook, Mapbox/MapLibre adapter, AQI helpers, IDW-grid raster conversion, core components, dark responsive CSS, and focused AQI helper tests.
+- `frontend/Dockerfile` and `frontend/nginx.conf`: Added a production static frontend container served by Nginx.
+- `frontend/.env.example`: Documented public frontend runtime variables without committing secrets.
+- `docker-compose.yml`: Replaced the placeholder frontend image with the real frontend build service using public `VITE_` build arguments.
+- `docs/phase-summaries/PHASE-11-summary.md`: Added the Phase 11 completion summary.
+
+### Reason
+
+Phase 11 requires a visually impressive core dashboard that works with the existing FastAPI and WebSocket layer while making coverage mode, confidence, source, observation type, freshness, and fallback provenance visible to users.
+
+### Impact
+
+The frontend now renders a defense-ready live dashboard shell with navigation, loading/error states, valley AQI gauge, station markers, station detail popup/card, IDW heatmap raster toggle, PM2.5 multi-station chart, provenance panel, pipeline health panel, and WebSocket-driven refresh behavior. The map initializes once and updates markers/heatmap sources in place. The app does not use Redux and does not invent frontend data when API history or current readings are unavailable.
+
+### Verification performed
+
+- `npm --prefix frontend install`: initial sandbox invocation did not produce a lockfile; approved network install with `--loglevel=info` passed and created `package-lock.json`.
+- `npm --prefix frontend run build`: failed once on ES2021 `replaceAll` usage, then passed after ES2020-compatible fixes. Final build passed with an expected large map-library chunk warning.
+- `npm --prefix frontend run lint || true`: failed once on map adapter `any` types, then passed after adding narrow local map interfaces.
+- `npm --prefix frontend run test -- --run`: passed with 3 tests.
+- `docker compose --profile core config --quiet`: passed.
+- `npm --prefix frontend audit --omit=dev`: failed first in the sandbox due registry DNS resolution, then passed with approved network and found 0 production vulnerabilities.
+
+### Plan changes
+
+- Used MapLibre as the no-token local default while keeping Mapbox support when `VITE_MAP_PROVIDER=mapbox` and a public `VITE_MAPBOX_TOKEN` are provided.
+- Did not implement historical explorer, forecast UI panel, replay controls, or fire overlays because those belong to later phases.
+- Did not add frontend fixture fallback data, so the dashboard never presents fabricated live readings.
+
+### Phase result
+
+Phase 11 is complete at the code/build verification level. The next phase is safe to start after reviewing the summary and running a browser check against a live API/frontend pair when convenient.
+
 ## PHASE-10 Forecasting and Accuracy Tracking - 2026-04-30
 
 ### Files changed
