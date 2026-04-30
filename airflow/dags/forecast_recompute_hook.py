@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from himalayaair.forecast_hook import run_forecast_recompute_hook
+from himalayaair.forecast_hook import run_forecast_recompute
 
 try:
     from airflow.decorators import dag, task
@@ -26,17 +26,17 @@ def _dag_conf() -> dict[str, Any]:
 if dag is not None and task is not None:
 
     @dag(
-        dag_id="forecast_recompute_hook",
+        dag_id="forecast_recompute",
         schedule="@hourly",
         start_date=datetime(2026, 1, 1, tzinfo=UTC),
         catchup=False,
-        tags=["himalayaair", "forecast", "hook"],
+        tags=["himalayaair", "forecast"],
     )
-    def build_forecast_recompute_hook() -> None:
-        @task(task_id="record_forecast_recompute_hook")
-        def record_forecast_recompute_hook() -> dict[str, object]:
-            return run_forecast_recompute_hook(_dag_conf())
+    def build_forecast_recompute() -> None:
+        @task(task_id="run_forecast_recompute")
+        def run_forecast_recompute_task() -> dict[str, object]:
+            return run_forecast_recompute(_dag_conf())
 
-        record_forecast_recompute_hook()
+        run_forecast_recompute_task()
 
-    forecast_recompute_hook = build_forecast_recompute_hook()
+    forecast_recompute = build_forecast_recompute()

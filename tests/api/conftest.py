@@ -11,6 +11,8 @@ from services.api.main import create_app, get_repository
 from services.api.models import (
     CoverageMetadata,
     FireEvent,
+    ForecastPoint,
+    ForecastResponse,
     HistoryPoint,
     NearestStation,
     PipelineRunHealth,
@@ -231,6 +233,26 @@ class FakeApiRepository:
                 distance_km=8.5 if lat is not None and lon is not None else None,
             )
         ]
+
+    async def fetch_forecast(self, station_id: int, *, pollutant: str) -> ForecastResponse:
+        return ForecastResponse(
+            station_id=station_id,
+            pollutant=pollutant,
+            generated_at=NOW,
+            model="openmeteo_cams_bias_adjusted",
+            model_source="modeled_aq_with_observed_bias",
+            fallback_reason="Insufficient 90-day observed coverage for SARIMAX.",
+            historical_mae=12.4,
+            forecasts=[
+                ForecastPoint(
+                    target_timestamp=datetime(2026, 4, 30, 9, 0, tzinfo=timezone.utc),
+                    horizon_hours=1,
+                    predicted_aqi=91,
+                    lower_bound=74,
+                    upper_bound=108,
+                )
+            ],
+        )
 
     async def fetch_pipeline_runs(self) -> list[PipelineRunHealth]:
         return [

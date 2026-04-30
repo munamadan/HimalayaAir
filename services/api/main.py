@@ -16,6 +16,7 @@ from services.api.db import close_database_engine, get_db_session, get_session_f
 from services.api.models import (
     BasicHealthResponse,
     EventsResponse,
+    ForecastResponse,
     HealthAdvisoryResponse,
     InterpolationResponse,
     PipelineHealthResponse,
@@ -29,6 +30,7 @@ from services.api.repository import ApiNotFoundError, ApiRepository
 from services.api.service import (
     get_basic_health_response,
     get_events_response,
+    get_forecast_response,
     get_health_advisory_response,
     get_interpolation_response,
     get_pipeline_health_response,
@@ -70,7 +72,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
                 await kafka_consumer.stop()
             await close_database_engine()
 
-    app = FastAPI(title="HimalayaAir API", version="0.9.0", lifespan=lifespan)
+    app = FastAPI(title="HimalayaAir API", version="0.10.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(resolved_settings.allowed_origins),
@@ -151,6 +153,14 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         if (lat is None) != (lon is None):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="lat and lon must be supplied together")
         return await get_events_response(repo, days=days, limit=limit, lat=lat, lon=lon)
+
+    @app.get("/api/forecasts/{station_id}", response_model=ForecastResponse)
+    async def forecast(
+        station_id: int,
+        pollutant: str = Query(default="pm25", min_length=1, max_length=20),
+        repo: ApiRepository = Depends(get_repository),
+    ) -> ForecastResponse:
+        return await get_forecast_response(repo, station_id=station_id, pollutant=pollutant)
 
     @app.get("/api/pipeline/health", response_model=PipelineHealthResponse)
     async def pipeline_health(

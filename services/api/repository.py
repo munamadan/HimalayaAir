@@ -11,6 +11,8 @@ from services.api.domain import AQPoint, choose_coverage_mode, current_aqi_from_
 from services.api.models import (
     CoverageMetadata,
     FireEvent,
+    ForecastPoint,
+    ForecastResponse,
     HistoryPoint,
     NearestStation,
     PipelineRunHealth,
@@ -523,6 +525,87 @@ class ApiRepository:
             )
             for row in result.mappings()
         ]
+
+    async def fetch_forecast(self, station_id: int, *, pollutant: str) -> ForecastResponse:
+        await self.fetch_station_identity(station_id)
+        normalized_pollutant = normalize_pollutant(pollutant)
+        latest_result = await self.session.execute(
+            text(
+                """
+                SELECT forecast_run_id, created_at
+                FROM forecasts
+                WHERE station_id = :station_id
+                  AND pollutant = :pollutant
+                ORDER BY created_at DESC
+                LIMIT 1
+                """
+            ),
+            {"station_id": station_id, "pollutant": normalized_pollutant},
+        )
+        latest = latest_result.mappings().first()
+        if latest is None:
+            raise ApiNotFoundError(f"forecast for station {station_id} and pollutant {normalized_pollutant} was not found")
+
+        forecast_run_id = int(latest["forecast_run_id"])
+        generated_at = ensure_utc(latest["created_at"])
+        rows_result = await self.session.execute(
+            text(
+                """
+                SELECT
+                    target_timestamp,
+                    predicted_aqi,
+                    lower_bound::float8 AS lower_bound,
+                    upper_bound::float8 AS upper_bound,
+                    model_name,
+                    model_source,
+                    fallback_reason,
+                    created_at
+                FROM forecasts
+                WHERE forecast_run_id = :forecast_run_id
+                  AND station_id = :station_id
+                  AND pollutant = :pollutant
+                ORDER BY target_timestamp ASC
+                """
+            ),
+            {"forecast_run_id": forecast_run_id, "station_id": station_id, "pollutant": normalized_pollutant},
+        )
+        rows = list(rows_result.mappings())
+        if not rows:
+            raise ApiNotFoundError(f"forecast for station {station_id} and pollutant {normalized_pollutant} was not found")
+
+        mae_result = await self.session.execute(
+            text(
+                """
+                SELECT AVG(mae)::float8
+                FROM forecast_accuracy
+                WHERE station_id = :station_id
+                  AND pollutant = :pollutant
+                  AND forecast_created_at >= NOW() - INTERVAL '30 days'
+                """
+            ),
+            {"station_id": station_id, "pollutant": normalized_pollutant},
+        )
+        historical_mae = mae_result.scalar_one_or_none()
+        first = rows[0]
+        return ForecastResponse(
+            station_id=station_id,
+            pollutant=normalized_pollutant,
+            generated_at=generated_at,
+            model=str(first["model_name"]),
+            model_source=str(first["model_source"]),
+            fallback_reason=_optional_str(first["fallback_reason"]),
+            historical_mae=round(float(historical_mae), 2) if historical_mae is not None else None,
+            forecasts=[
+                ForecastPoint(
+                    target_timestamp=ensure_utc(row["target_timestamp"]),
+                    horizon_hours=max(1, round((ensure_utc(row["target_timestamp"]) - ensure_utc(row["created_at"])).total_seconds() / 3600)),
+                    predicted_aqi=int(row["predicted_aqi"]),
+                    lower_bound=float(row["lower_bound"]) if row["lower_bound"] is not None else None,
+                    upper_bound=float(row["upper_bound"]) if row["upper_bound"] is not None else None,
+                )
+                for row in rows
+            ],
+        )
 
     async def fetch_pipeline_runs(self) -> list[PipelineRunHealth]:
         result = await self.session.execute(

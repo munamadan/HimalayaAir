@@ -11,6 +11,7 @@ from services.api.models import (
     BasicHealthResponse,
     CoverageMetadata,
     EventsResponse,
+    ForecastResponse,
     HealthAdvisoryResponse,
     InterpolationGrid,
     InterpolationResponse,
@@ -38,6 +39,7 @@ class ApiRepositoryProtocol(Protocol):
     async def fetch_modeled_points(self, *, pollutant: str) -> list[AQPoint]: ...
     async def fetch_nearest_station(self, *, lat: float, lon: float) -> object | None: ...
     async def fetch_fire_events(self, *, days: int, limit: int, lat: float | None, lon: float | None) -> list[object]: ...
+    async def fetch_forecast(self, station_id: int, *, pollutant: str) -> ForecastResponse: ...
     async def fetch_pipeline_runs(self) -> list[object]: ...
     async def fetch_latest_aq_timestamp(self) -> datetime | None: ...
     async def fetch_latest_modeled_timestamp(self) -> datetime | None: ...
@@ -180,6 +182,10 @@ async def get_health_advisory_response(repo: ApiRepositoryProtocol, *, lat: floa
 async def get_events_response(repo: ApiRepositoryProtocol, *, days: int, limit: int, lat: float | None, lon: float | None) -> EventsResponse:
     events = await repo.fetch_fire_events(days=days, limit=limit, lat=lat, lon=lon)
     return EventsResponse(events=list(events), count=len(events))
+
+
+async def get_forecast_response(repo: ApiRepositoryProtocol, *, station_id: int, pollutant: str) -> ForecastResponse:
+    return await repo.fetch_forecast(station_id, pollutant=pollutant)
 
 
 async def get_pipeline_health_response(repo: ApiRepositoryProtocol, settings: ApiSettings) -> PipelineHealthResponse:

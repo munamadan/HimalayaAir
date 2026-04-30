@@ -187,6 +187,25 @@ class EventsResponse(APIModel):
     count: int = Field(ge=0)
 
 
+class ForecastPoint(APIModel):
+    target_timestamp: datetime
+    horizon_hours: int = Field(ge=1)
+    predicted_aqi: int = Field(ge=0)
+    lower_bound: float | None = None
+    upper_bound: float | None = None
+
+
+class ForecastResponse(APIModel):
+    station_id: int
+    pollutant: str
+    generated_at: datetime
+    model: str
+    model_source: str
+    fallback_reason: str | None = None
+    historical_mae: float | None = None
+    forecasts: list[ForecastPoint]
+
+
 class PipelineRunHealth(APIModel):
     component: str
     run_at: datetime | None = None

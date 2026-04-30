@@ -59,6 +59,9 @@ REQUIRED_CHECKS = {
     "ck_coverage_mode",
     "ck_coverage_confidence",
 }
+REQUIRED_COLUMNS = {
+    ("forecasts", "fallback_reason"),
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -111,6 +114,16 @@ def verify(conn: PgConnection) -> dict[str, Any]:
     missing_continuous_aggregates = sorted(REQUIRED_CONTINUOUS_AGGREGATES - continuous_aggregates)
     missing_indexes = sorted(REQUIRED_INDEXES - indexes)
     missing_checks = sorted(REQUIRED_CHECKS - checks)
+    columns = fetch_set(
+        conn,
+        """
+        SELECT table_name || '.' || column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+        """,
+    )
+    required_columns = {f"{table}.{column}" for table, column in REQUIRED_COLUMNS}
+    missing_columns = sorted(required_columns - columns)
 
     for label, missing in (
         ("extensions", missing_extensions),
@@ -119,6 +132,7 @@ def verify(conn: PgConnection) -> dict[str, Any]:
         ("continuous_aggregates", missing_continuous_aggregates),
         ("indexes", missing_indexes),
         ("checks", missing_checks),
+        ("columns", missing_columns),
     ):
         if missing:
             failures.append(f"missing {label}: {', '.join(missing)}")
@@ -136,6 +150,7 @@ def verify(conn: PgConnection) -> dict[str, Any]:
         "continuous_aggregates": sorted(continuous_aggregates & REQUIRED_CONTINUOUS_AGGREGATES),
         "indexes_checked": sorted(indexes & REQUIRED_INDEXES),
         "checks_checked": sorted(checks & REQUIRED_CHECKS),
+        "columns_checked": sorted(columns & required_columns),
     }
 
 
