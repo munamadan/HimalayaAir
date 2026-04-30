@@ -12,7 +12,7 @@ from starlette.requests import HTTPConnection
 
 from services.api.cache import ApiCaches
 from services.api.config import ApiSettings
-from services.api.db import close_database_engine, get_db_session
+from services.api.db import close_database_engine, get_db_session, get_session_factory
 from services.api.models import (
     BasicHealthResponse,
     EventsResponse,
@@ -162,15 +162,21 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     @app.websocket("/ws/live-feed")
     async def live_feed(
         websocket: WebSocket,
-        repo: ApiRepository = Depends(get_repository),
         caches_dep: ApiCaches = Depends(get_caches),
         manager_dep: ConnectionManager = Depends(get_connection_manager),
         settings_dep: ApiSettings = Depends(get_settings),
     ) -> None:
         await manager_dep.connect(websocket)
         try:
-            snapshot = await get_stations_response(repo, caches_dep)
-            await manager_dep.send_event(websocket, event="station_snapshot", data=snapshot.model_dump(mode="json"))
+            try:
+                session_factory = get_session_factory(settings_dep)
+                async with session_factory() as session:
+                    repo = ApiRepository(session, settings_dep)
+                    snapshot = await get_stations_response(repo, caches_dep)
+                    await manager_dep.send_event(websocket, event="station_snapshot", data=snapshot.model_dump(mode="json"))
+            except Exception as exc:
+                logger.warning("websocket_station_snapshot_failed", error=str(exc))
+                await manager_dep.send_event(websocket, event="error", data={"message": str(exc)})
             await manager_dep.websocket_loop(websocket, heartbeat_seconds=settings_dep.websocket_heartbeat_seconds)
         except Exception as exc:
             logger.warning("websocket_live_feed_failed", error=str(exc))
