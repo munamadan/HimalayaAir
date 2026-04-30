@@ -173,7 +173,7 @@ class ForecastRepository:
                             """,
                             rows,
                         )
-                        inserted = int(cursor.rowcount or 0)
+                        inserted = len(rows)
                 conn.commit()
         except psycopg2.Error as exc:
             raise ForecastRepositoryError(f"failed to write forecasts: {exc}") from exc

@@ -536,7 +536,7 @@ class ApiRepository:
                 FROM forecasts
                 WHERE station_id = :station_id
                   AND pollutant = :pollutant
-                ORDER BY created_at DESC
+                ORDER BY created_at DESC, forecast_run_id DESC
                 LIMIT 1
                 """
             ),
