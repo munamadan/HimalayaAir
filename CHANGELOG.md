@@ -2,6 +2,50 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## PHASE-10 Forecasting and Accuracy Tracking - 2026-04-30
+
+### Files changed
+
+- `services/forecasting/`: Added forecast settings, typed model inputs/results, arbitration, persistence baseline, Open-Meteo modeled bias adjustment, SARIMAX execution, retrospective accuracy record building, sync TimescaleDB repository writes, and a `run_once` CLI.
+- `db/alembic/versions/0007_forecast_fallback_reason.py`: Added `forecasts.fallback_reason` so station-level forecast rows preserve visible fallback reasons.
+- `airflow/dags/forecast_recompute_hook.py` and `airflow/dags/himalayaair/forecast_hook.py`: Replaced the Phase 08 hook behavior with a real hourly `forecast_recompute` DAG task that calls the Phase 10 runner.
+- `services/api/`: Added forecast response schemas, repository query support, service wiring, and `GET /api/forecasts/{station_id}`.
+- `docker-compose.yml`, `.env.example`, and `requirements.txt`: Added forecast runtime knobs and the `statsmodels` SARIMAX dependency.
+- `scripts/verify_db_schema.py`: Added verification for the new `forecasts.fallback_reason` column.
+- `tests/forecasting/` and `tests/api/test_forecasts_contract.py`: Added arbitration, persistence shape, modeled-bias, forecast-accuracy idempotency, and forecast API contract coverage.
+- `docs/phase-summaries/PHASE-10-summary.md`: Added the Phase 10 completion summary.
+
+### Reason
+
+Phase 10 requires 72-hour forecasts that always return a valid forecast while honestly exposing whether the model came from SARIMAX, modeled AQ with observed bias, or persistence fallback.
+
+### Impact
+
+Forecast recomputation now writes `forecast_runs` and `forecasts` with `model_name`, `model_source`, and `fallback_reason`. SARIMAX is selected only when observed AQ history, historical weather, and future weather covariates meet configured coverage thresholds. Modeled AQ is used only from `modeled_aq_readings` with `MODELED_BASELINE` provenance, and persistence falls back to the latest observed/replay/modeled AQI or an explicit synthetic seed when no baseline exists. Retrospective accuracy inserts are idempotent through the existing unique key. The API now exposes the latest forecast run for a station with confidence bounds and historical MAE when available.
+
+### Verification performed
+
+- `pytest tests/forecasting -q`: passed with 9 tests.
+- `python -m services.forecasting.run_once --dry-run`: failed first in the sandbox due blocked local DB socket, then passed with approved DB access. After installing `statsmodels`, it selected persistence for 2 stations because local observed/weather/future modeled coverage is currently insufficient.
+- `curl -fsS http://localhost:8000/api/forecasts/1`: failed first in the sandbox due blocked local socket, then failed because no API server was running, then passed against a temporary FastAPI server after writing a real forecast run.
+- `PATH="$HOME/.local/bin:$PATH" alembic upgrade head`: failed first in the sandbox due blocked local DB socket, then passed with approved DB access and applied `0007_forecast_fallback_reason`.
+- `python scripts/verify_db_schema.py`: failed before the migration completed during a parallel check, then passed and verified `forecasts.fallback_reason`.
+- `python -m pip install --user "statsmodels>=0.14,<1.0"`: failed first under sandbox DNS restrictions, then passed with approved network access.
+- `pytest tests/api tests/forecasting -q`: passed with 22 tests.
+- `pytest tests/unit tests/openaq tests/weather tests/integration tests/airflow tests/api tests/forecasting -q`: passed with 63 tests.
+- `python -m py_compile services/forecasting/*.py services/api/*.py airflow/dags/*.py airflow/dags/himalayaair/*.py db/alembic/versions/*.py scripts/verify_db_schema.py`: passed.
+- `docker compose --profile core config --quiet`, `docker compose --profile batch config --quiet`, and `docker compose --profile full config --quiet`: passed.
+
+### Plan changes
+
+- Kept the existing Phase 08 filename `forecast_recompute_hook.py` but changed the DAG id to `forecast_recompute` and the task to real forecast execution.
+- Added a Phase 10 migration because the existing `forecasts` table did not have row-level `fallback_reason`, and mixed station/model runs need station-specific explanations.
+- The local verification wrote forecast runs using persistence because the current local database has no sufficient 90-day observed AQ history, incomplete 90-day weather coverage, and fewer than 72 future modeled AQ hours.
+
+### Phase result
+
+Phase 10 is complete at the code and local verification level. Forecasting is available, source-aware, and measurable; the next phase is safe to start after reviewing the summary.
+
 ## PHASE-09 FastAPI REST API and WebSocket Layer - 2026-04-30
 
 ### Files changed
