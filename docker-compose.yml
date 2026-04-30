@@ -26,11 +26,31 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
     AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+    PYTHONPATH: /opt/airflow/project:/opt/airflow/dags
+    SYNC_DATABASE_URL: ${SYNC_DATABASE_URL:-postgresql://himalayaair:himalayaair@timescaledb:5432/himalayaair}
+    LOG_FORMAT: ${LOG_FORMAT:-json}
+    OPENAQ_API_KEY: ${OPENAQ_API_KEY:-}
+    FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
+    FIRMS_SOURCE: ${FIRMS_SOURCE:-VIIRS_SNPP_NRT}
+    FIRMS_AREA_BBOX: ${FIRMS_AREA_BBOX:-80.0,26.0,89.0,31.0}
+    FIRMS_DAY_RANGE: ${FIRMS_DAY_RANGE:-1}
+    AIRFLOW_HTTP_TIMEOUT_SECONDS: ${AIRFLOW_HTTP_TIMEOUT_SECONDS:-20}
+    AIRFLOW_HTTP_RETRIES: ${AIRFLOW_HTTP_RETRIES:-2}
+    AIRFLOW_OPENAQ_BACKFILL_MAX_SENSORS: ${AIRFLOW_OPENAQ_BACKFILL_MAX_SENSORS:-0}
+    AIRFLOW_OPENAQ_BACKFILL_MAX_DAYS: ${AIRFLOW_OPENAQ_BACKFILL_MAX_DAYS:-7}
+    AIRFLOW_WEATHER_BACKFILL_MAX_LOCATIONS: ${AIRFLOW_WEATHER_BACKFILL_MAX_LOCATIONS:-0}
+    AIRFLOW_WEATHER_BACKFILL_MAX_MONTHS: ${AIRFLOW_WEATHER_BACKFILL_MAX_MONTHS:-3}
+    AIRFLOW_QUALITY_FRESH_HOURS: ${AIRFLOW_QUALITY_FRESH_HOURS:-2}
+    AIRFLOW_QUALITY_RECENT_HOURS: ${AIRFLOW_QUALITY_RECENT_HOURS:-24}
+    AIRFLOW_QUALITY_DEAD_SENSOR_DAYS: ${AIRFLOW_QUALITY_DEAD_SENSOR_DAYS:-14}
+    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-structlog>=24.1,<26.0 httpx>=0.27,<1.0}
     _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
     _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
+    - ./shared:/opt/airflow/project/shared:ro
+    - ./services:/opt/airflow/project/services:ro
     - airflow-logs:/opt/airflow/logs
   depends_on:
     airflow-postgres:
@@ -39,7 +59,7 @@ x-airflow-common: &airflow-common
 services:
   timescaledb:
     image: timescale/timescaledb-ha:pg16
-    profiles: ["core", "weather", "observed", "stream", "full"]
+    profiles: ["core", "weather", "observed", "stream", "batch", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
