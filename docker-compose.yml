@@ -116,26 +116,39 @@ services:
     mem_reservation: 512m
 
   api:
-    image: python:3.12-slim
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
     profiles: ["core", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
-    command: ["python", "-m", "http.server", "8000", "--bind", "0.0.0.0"]
+    command: ["uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
+      SERVICE_NAME: himalayaair-api
       LOG_FORMAT: ${LOG_FORMAT:-json}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://himalayaair:himalayaair@timescaledb:5432/himalayaair}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      API_FRESH_HOURS: ${API_FRESH_HOURS:-2}
+      API_RECENT_HOURS: ${API_RECENT_HOURS:-24}
+      API_MODELED_HOURS: ${API_MODELED_HOURS:-24}
+      API_STATION_CACHE_TTL_SECONDS: ${API_STATION_CACHE_TTL_SECONDS:-20}
+      API_IDW_CACHE_TTL_SECONDS: ${API_IDW_CACHE_TTL_SECONDS:-30}
+      API_IDW_ROWS: ${API_IDW_ROWS:-50}
+      API_IDW_COLS: ${API_IDW_COLS:-50}
+      API_KAFKA_CONSUMER_ENABLED: ${API_KAFKA_CONSUMER_ENABLED:-true}
+      API_KAFKA_GROUP_ID: ${API_KAFKA_GROUP_ID:-himalayaair-api-live-feed}
+      API_OPENAQ_HEALTH_URL: ${API_OPENAQ_HEALTH_URL:-http://openaq-poller:9090/health}
+      API_WEATHER_HEALTH_URL: ${API_WEATHER_HEALTH_URL:-http://weather-poller:9091/health}
+      API_MODELED_AQ_HEALTH_URL: ${API_MODELED_AQ_HEALTH_URL:-http://openmeteo-aq-poller:9092/health}
     ports:
       - "${API_HOST_PORT:-8000}:8000"
     depends_on:
       timescaledb:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000', timeout=2).read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()"]
       interval: 20s
       timeout: 5s
       retries: 5
