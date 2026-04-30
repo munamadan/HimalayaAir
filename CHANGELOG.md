@@ -2,6 +2,48 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## PHASE-09 FastAPI REST API and WebSocket Layer - 2026-04-30
+
+### Files changed
+
+- `services/api/`: Added the FastAPI service package with environment settings, async SQLAlchemy session setup, Pydantic response contracts, coverage/provenance helpers, PostGIS-aware repository queries, IDW interpolation using local meter projection, in-process TTL caches, health checks, and WebSocket/Kafka live-feed management.
+- `services/api/Dockerfile`: Added the runtime image for the Compose `api` service.
+- `docker-compose.yml`: Replaced the Phase 02 HTTP placeholder with the real FastAPI API service and removed Kafka as an API startup dependency so Kafka outages do not block API startup.
+- `.env.example`: Added blank non-secret API runtime knobs for coverage windows, caches, IDW grid size, WebSocket heartbeat, Kafka health, and poller health URLs.
+- `requirements.txt`: Added FastAPI, Uvicorn, asyncpg, and aiokafka runtime dependencies.
+- `tests/api/`: Added API contract tests with fixture repository data for stations, station current/history, valley current/history, interpolation, health advisory, events, pipeline health, route registration, and WebSocket duplicate batch handling.
+- `docs/phase-summaries/PHASE-09-summary.md`: Added the Phase 09 completion summary.
+
+### Reason
+
+Phase 09 requires a curl-testable backend API that exposes coverage-aware REST endpoints, provenance, IDW interpolation, health status, and a WebSocket live feed without starting future forecasting or frontend work.
+
+### Impact
+
+The backend now exposes `/health`, `/api/stations`, `/api/stations/{id}/current`, `/api/stations/{id}/history`, `/api/valley/current`, `/api/valley/history`, `/api/interpolation/current`, `/api/health-advisory`, `/api/events`, `/api/pipeline/health`, and `/ws/live-feed`. Responses preserve `coverage_mode`, `confidence`, source, observation type, freshness, and fallback messaging. Current station state selects latest readings per pollutant within the configured freshness window. Distance outputs use PostGIS geography in SQL, and IDW uses local projected meter offsets instead of raw degree distance. The WebSocket Kafka consumer retries in the background and does not block API startup.
+
+### Verification performed
+
+- `pytest tests/api -q`: passed with 12 tests.
+- `python -m py_compile services/api/*.py`: passed.
+- `docker compose --profile core config --quiet`: passed.
+- `pytest tests/unit tests/api -q`: passed with 29 tests.
+- `pytest tests/unit tests/openaq tests/weather tests/integration tests/airflow tests/api -q`: passed with 53 tests.
+- `timeout 6s uvicorn services.api.main:app --host 0.0.0.0 --port 8000 --reload || true`: first failed inside the sandbox with socket permission denied; then failed because the old Phase 02 placeholder API container was still bound to port 8000; passed after stopping only that placeholder container and rerunning with approved local socket access.
+- `curl -fsS http://localhost:8000/health || true`: first failed inside the sandbox due blocked local socket access, then hit the old placeholder and returned 404, then passed against the new temporary FastAPI server and returned `status=healthy` after installing runtime dependencies locally.
+- `python -m pip install --user asyncpg aiokafka`: first failed under sandbox DNS restrictions, then passed with approved network access.
+- Temporary live curl check against `/api/stations`: passed and returned a provenance-aware `MODELED_BASELINE` response from the local database because fresh/recent observed coverage is currently sparse.
+
+### Plan changes
+
+- API contract tests use a fixture repository rather than a live test database so they remain deterministic and do not require TimescaleDB/PostGIS during unit verification. Live `/api/stations` was still curl-tested against the local database after installing runtime dependencies.
+- `/api/forecasts/{station_id}` was intentionally not implemented because forecast model execution and forecast API behavior belong to Phase 10.
+- The old placeholder `api` container was stopped during verification to free port 8000. Recreate the Compose API service with the new image when Docker build network access is available.
+
+### Phase result
+
+Phase 09 is complete at the code and local verification level. The REST API and WebSocket layer are implemented with visible provenance and degradation behavior. The next phase is safe to start after reviewing the summary and rebuilding/restarting the Compose API service if containerized runtime verification is needed.
+
 ## PHASE-08 Airflow Backfills, Quality Checks, and FIRMS - 2026-04-30
 
 ### Files changed
