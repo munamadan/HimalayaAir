@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AqiGauge } from './components/AqiGauge';
 import { CoverageRibbon } from './components/CoverageRibbon';
 import { ErrorPanel } from './components/ErrorPanel';
+import { ForecastPanel } from './components/ForecastPanel';
+import { HistoricalExplorer } from './components/HistoricalExplorer';
 import { LiveMap } from './components/LiveMap';
 import { LoadingState } from './components/LoadingState';
 import { MetricCard } from './components/MetricCard';
@@ -10,6 +12,7 @@ import { PipelineHealth } from './components/PipelineHealth';
 import { Pm25Chart } from './components/Pm25Chart';
 import { ProvenancePanel } from './components/ProvenancePanel';
 import { StationPopup } from './components/StationPopup';
+import { WindRose } from './components/WindRose';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useLiveFeed } from './hooks/useLiveFeed';
 import { useStationCurrent } from './hooks/useStationCurrent';
@@ -21,6 +24,8 @@ function App() {
   const dashboard = useDashboardData();
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(true);
+  const [showFireEvents, setShowFireEvents] = useState(true);
+  const [historicalPollutant, setHistoricalPollutant] = useState('pm25');
 
   const handleLiveEvent = useCallback(
     (event: WebSocketEvent) => {
@@ -57,6 +62,8 @@ function App() {
   const lastUpdated = liveFeed.lastMessageAt ?? dashboard.stations?.timestamp ?? dashboard.valley?.timestamp ?? null;
   const activeStations = sortedStations.filter((station) => station.active).length;
   const reportingStations = sortedStations.filter(stationHasCurrentData).length;
+  const displayAqi = dashboard.valley?.composite_aqi ?? dashboard.stations?.valley_composite_aqi ?? null;
+  const cigaretteEquivalent = displayAqi === null ? null : Math.max(Math.round(displayAqi / 22), 0);
 
   return (
     <div className="app-shell">
@@ -71,6 +78,8 @@ function App() {
         <nav aria-label="Dashboard sections">
           <a href="#map">Map</a>
           <a href="#charts">PM2.5</a>
+          <a href="#historical">Historical</a>
+          <a href="#forecast">Forecast</a>
           <a href="#pipeline">Pipeline</a>
           <a href="#method">Method</a>
         </nav>
@@ -106,6 +115,11 @@ function App() {
           <MetricCard label="Coverage" value={formatCoverageMode(coverage?.coverage_mode)} detail={coverage?.message ?? 'Waiting for API coverage metadata.'} />
           <MetricCard label="Stations" value={`${reportingStations}/${activeStations}`} detail="current AQI reporting stations over active stations" />
           <MetricCard label="Source" value={dashboard.valley?.source ?? selectedStation?.source ?? 'not reported'} detail="dominant current source from API metadata" />
+          <MetricCard
+            label="Cigarette Eq."
+            value={cigaretteEquivalent === null ? 'n/a' : `${cigaretteEquivalent}`}
+            detail="estimated equivalent cigarette exposure for one day at current AQI"
+          />
         </section>
 
         <section id="map" className="live-grid">
@@ -114,8 +128,11 @@ function App() {
             interpolation={dashboard.interpolation}
             selectedStationId={selectedStationId}
             showHeatmap={showHeatmap}
+            showFireEvents={showFireEvents}
+            fireEvents={dashboard.events?.events ?? []}
             onSelectStation={setSelectedStationId}
             onToggleHeatmap={() => setShowHeatmap((current) => !current)}
+            onToggleFireEvents={() => setShowFireEvents((current) => !current)}
           />
           <StationPopup
             station={selectedStation}
@@ -129,6 +146,18 @@ function App() {
           <Pm25Chart histories={dashboard.histories} />
           <ProvenancePanel stations={dashboard.stations} valley={dashboard.valley} />
         </section>
+
+        <section className="lower-grid lower-grid--narrow">
+          <WindRose data={dashboard.windRose} />
+        </section>
+
+        <HistoricalExplorer
+          stations={sortedStations}
+          pollutant={historicalPollutant}
+          onPollutantChange={setHistoricalPollutant}
+        />
+
+        <ForecastPanel stations={sortedStations} pollutant={historicalPollutant} />
 
         <section id="pipeline" className="lower-grid lower-grid--narrow">
           <PipelineHealth health={dashboard.pipelineHealth} />

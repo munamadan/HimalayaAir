@@ -187,6 +187,19 @@ class EventsResponse(APIModel):
     count: int = Field(ge=0)
 
 
+class WindRoseBin(APIModel):
+    direction_start: int = Field(ge=0, le=359)
+    direction_end: int = Field(ge=1, le=360)
+    avg_speed: float | None = Field(default=None, ge=0)
+    sample_count: int = Field(ge=0)
+
+
+class WindRoseResponse(APIModel):
+    hours: int = Field(ge=1, le=24 * 31)
+    bins: list[WindRoseBin]
+    total_samples: int = Field(ge=0)
+
+
 class ForecastPoint(APIModel):
     target_timestamp: datetime
     horizon_hours: int = Field(ge=1)

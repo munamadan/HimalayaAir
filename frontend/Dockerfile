@@ -1,8 +1,8 @@
-FROM node:25-alpine AS build
+FROM node:22 AS build
 
 WORKDIR /app
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 
 COPY frontend/ ./
 ARG VITE_API_BASE_URL=http://localhost:8000

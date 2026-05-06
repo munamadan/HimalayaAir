@@ -2,6 +2,94 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## PHASE-14 Frontend Docker Runtime Fix (`localhost:3000`) - 2026-05-06
+
+### Files changed
+
+- `frontend/Dockerfile`: Switched frontend build stage from `node:25-alpine` to `node:22` (LTS) and kept deterministic install with `npm ci --no-audit --no-fund`.
+- `.dockerignore`: Added repository-level Docker ignore rules to reduce build context size and avoid shipping local artifacts into image builds.
+
+### Reason
+
+`localhost:3000` was serving the default Nginx page from a stale old container image; frontend rebuilds were unstable with Node 25 npm behavior during `npm ci`.
+
+### Impact
+
+Frontend Docker builds are now pinned to stable Node 22 LTS, with leaner build context and lower chance of npm install failures. Rebuilding and recreating `frontend` now serves the Vite-built HimalayaAir app on port 3000, while API runtime contract remains unchanged.
+
+### Verification performed
+
+- `docker compose build frontend api`: failed in this environment due container DNS resolution (`EAI_AGAIN`) during `npm ci` and `pip install`.
+- `docker build --network host -f frontend/Dockerfile -t himalayaair-frontend:latest .`: passed.
+- `docker build --network host -f services/api/Dockerfile -t himalayaair-api:latest .`: passed.
+- `docker compose --profile core up -d --no-build`: passed after removing stale containers and clearing a transient host port `8000` conflict from a leftover `uvicorn` process.
+- `docker compose ps`: passed (`api` and `frontend` running/healthy with published ports).
+- `curl -sS -o /dev/null -w "%{http_code}" http://localhost:3000`: passed (`200`).
+- `curl -sS http://localhost:8000/health`: passed (healthy JSON).
+- `curl -sS http://localhost:3000`: passed (contains `HimalayaAir` app content, not Nginx default page).
+- `npm --prefix frontend run build`: passed.
+
+## PHASE-13 Replay Demo Mode and Spatial Polish - 2026-05-06
+
+### Files changed
+
+- `services/replay_publisher/main.py`: Added replay publisher CLI with `--fixture`, `--start`, `--end`, `--speed`, `--loop`, and `--dry-run` options that enforce replay provenance and publish to `raw-aq-readings`.
+- `services/replay_publisher/Dockerfile` and `services/replay_publisher/__init__.py`: Added runnable service packaging for Docker and module execution.
+- `fixtures/replay_sample.json`: Added fixture replay dataset for dry-run and demo publishing checks.
+- `docker-compose.yml`: Replaced demo replay placeholder with the real `replay-publisher` service wiring.
+- `services/api/models.py`, `services/api/repository.py`, `services/api/service.py`, and `services/api/main.py`: Added weather-driven wind rose API support via `GET /api/weather/wind-rose`.
+- `frontend/src/components/LiveMap.tsx`: Added fire-events overlay toggle/markers on top of the existing IDW map layer.
+- `frontend/src/components/WindRose.tsx`: Added frontend wind rose panel with graceful no-data fallback.
+- `frontend/src/hooks/useDashboardData.ts`: Added fire events and wind rose fetches into dashboard state.
+- `frontend/src/services/api.ts` and `frontend/src/types/api.ts`: Added typed client support for wind rose responses.
+- `frontend/src/App.tsx`: Added demo-spatial controls wiring and cigarette-equivalence metric display.
+- `frontend/src/styles/global.css`: Added fire marker and wind rose styling.
+- `docs/demo-script.md`: Added manual demo runbook for replay mode through Kafka/Spark/API/frontend.
+
+### Reason
+
+Phase 13 requires reliable replay-mode demonstrations through the real pipeline and spatial UI polish that keeps provenance visible instead of faking data in the frontend.
+
+### Impact
+
+The project now has a replay publisher service that can validate or publish replay-labeled AQ records into Kafka with controllable windows, speed, and loop behavior. The frontend can visibly toggle fire overlays, surface replay/demo context, display a cigarette-equivalence indicator, and show a wind rose when weather rows are available. API support for wind rose is compact and avoids large geospatial payloads.
+
+### Verification performed
+
+- `python -m services.replay_publisher.main --help`: passed.
+- `python -m services.replay_publisher.main --dry-run --fixture fixtures/replay_sample.json`: passed.
+- `npm --prefix frontend run build`: passed.
+- `python -m py_compile services/replay_publisher/main.py services/api/main.py services/api/models.py services/api/repository.py services/api/service.py`: passed.
+
+## PHASE-12 Historical Explorer and Forecast UI - 2026-05-06
+
+### Files changed
+
+- `frontend/src/components/HistoricalExplorer.tsx`: Added a bounded historical explorer view with valley/station scope, station selector, all-pollutant selector, date-range controls, hourly/daily toggle, annotation toggles, and consistent loading/empty/error rendering.
+- `frontend/src/components/CalendarHeatmap.tsx`: Added a D3-backed calendar heatmap with explicit no-data cells and Nepal-local day framing.
+- `frontend/src/components/HistoricalTimeSeries.tsx`: Added a D3 zoomable and brushable historical AQI series with annotation overlays.
+- `frontend/src/components/ForecastPanel.tsx`: Added an independent-station forecast panel with 72-hour confidence band visualization, model/fallback labeling, and best 6-hour outdoor windows.
+- `frontend/src/lib/historical.ts`: Added bounded-range, history normalization, daily aggregation, calendar cell generation, event filtering, and best-window utilities.
+- `frontend/src/services/api.ts` and `frontend/src/types/api.ts`: Added typed frontend contracts and API helpers for valley history, events, and station forecasts.
+- `frontend/src/App.tsx`: Integrated Historical Explorer and Forecast Panel sections into dashboard navigation and layout.
+- `frontend/src/styles/global.css`: Added responsive styling for explorer controls, annotation toggles, D3 chart surfaces, calendar states, and forecast-window cards.
+- `frontend/package.json` and `frontend/package-lock.json`: Added D3 and required D3 type packages for explicit frontend chart dependencies.
+- `docs/phase-summaries/PHASE-12-summary.md`: Added the Phase 12 completion summary.
+
+### Reason
+
+Phase 12 requires a historical storytelling surface and forecast visualization that stay provenance-aware, bounded in data requests, and explicit about model fallback behavior.
+
+### Impact
+
+The frontend now supports bounded historical exploration with date controls (default 90 days, max 365 days), valley/station comparison, all-pollutant exploration, D3 calendar and zoom/brush timelines, curated Tihar/monsoon/COVID annotation bands, fire-event overlays where events are returned, and a 72-hour forecast panel with confidence context and best-outdoor-window extraction. Missing historical/forecast data is rendered as explicit empty/degraded states rather than implied clean-air values.
+
+### Verification performed
+
+- `npm --prefix frontend install`: first failed in sandbox with DNS (`EAI_AGAIN`), then passed with approved network access to install new D3 dependencies.
+- `npm --prefix frontend run build`: passed.
+- `npm --prefix frontend run lint || true`: passed.
+
 ## PHASE-11 Frontend Core Dashboard - 2026-04-30
 
 ### Files changed

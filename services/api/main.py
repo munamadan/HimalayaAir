@@ -25,6 +25,7 @@ from services.api.models import (
     StationsResponse,
     ValleyCurrentResponse,
     ValleyHistoryResponse,
+    WindRoseResponse,
 )
 from services.api.repository import ApiNotFoundError, ApiRepository
 from services.api.service import (
@@ -38,6 +39,7 @@ from services.api.service import (
     get_stations_response,
     get_valley_current_response,
     get_valley_history_response,
+    get_wind_rose_response,
 )
 from services.api.websocket import ConnectionManager, KafkaLiveFeedConsumer
 from shared.logging_config import configure_logging, get_logger
@@ -168,6 +170,14 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         settings_dep: ApiSettings = Depends(get_settings),
     ) -> PipelineHealthResponse:
         return await get_pipeline_health_response(repo, settings_dep)
+
+    @app.get("/api/weather/wind-rose", response_model=WindRoseResponse)
+    async def weather_wind_rose(
+        hours: int = Query(default=24, ge=1, le=24 * 31),
+        bins: int = Query(default=16, ge=4, le=36),
+        repo: ApiRepository = Depends(get_repository),
+    ) -> WindRoseResponse:
+        return await get_wind_rose_response(repo, hours=hours, bins=bins)
 
     @app.websocket("/ws/live-feed")
     async def live_feed(

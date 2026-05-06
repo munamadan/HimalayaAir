@@ -14,7 +14,7 @@ import {
   type MapPopup,
   type MapProvider,
 } from '../services/mapEngine';
-import type { InterpolationResponse, StationSummary } from '../types/api';
+import type { FireEvent, InterpolationResponse, StationSummary } from '../types/api';
 
 const KATHMANDU_CENTER: [number, number] = [85.324, 27.7172];
 const HEATMAP_SOURCE_ID = 'himalayaair-current-grid';
@@ -25,8 +25,11 @@ interface LiveMapProps {
   interpolation: InterpolationResponse | null;
   selectedStationId: number | null;
   showHeatmap: boolean;
+  showFireEvents: boolean;
+  fireEvents: FireEvent[];
   onSelectStation: (stationId: number) => void;
   onToggleHeatmap: () => void;
+  onToggleFireEvents: () => void;
 }
 
 export function LiveMap({
@@ -34,14 +37,18 @@ export function LiveMap({
   interpolation,
   selectedStationId,
   showHeatmap,
+  showFireEvents,
+  fireEvents,
   onSelectStation,
   onToggleHeatmap,
+  onToggleFireEvents,
 }: LiveMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const mapModuleRef = useRef<MapEngineModule | null>(null);
   const markersRef = useRef<Map<number, MapMarker>>(new Map());
   const popupRef = useRef<MapPopup | null>(null);
+  const fireMarkersRef = useRef<MapMarker[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [provider, setProvider] = useState<MapProvider | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -94,6 +101,8 @@ export function LiveMap({
       cancelled = true;
       markerStore.forEach((marker) => marker.remove());
       markerStore.clear();
+      fireMarkersRef.current.forEach((marker) => marker.remove());
+      fireMarkersRef.current = [];
       popupRef.current?.remove();
       mapInstance?.remove();
       mapRef.current = null;
@@ -158,6 +167,24 @@ export function LiveMap({
     upsertHeatmap(mapRef.current, image.url, image.coordinates);
   }, [interpolation, mapReady, showHeatmap]);
 
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !mapModuleRef.current) {
+      return;
+    }
+    fireMarkersRef.current.forEach((marker) => marker.remove());
+    fireMarkersRef.current = [];
+    if (!showFireEvents) {
+      return;
+    }
+    fireMarkersRef.current = fireEvents.map((event) => {
+      const element = document.createElement('span');
+      element.className = 'fire-marker';
+      element.textContent = '\u25cf';
+      element.setAttribute('aria-label', `Fire event ${event.acq_date}`);
+      return new mapModuleRef.current!.Marker({ element, anchor: 'center' }).setLngLat([event.lon, event.lat]).addTo(mapRef.current!);
+    });
+  }, [fireEvents, mapReady, showFireEvents]);
+
   const heatmapStatus = interpolation?.insufficient_data
     ? interpolation.message
     : `${interpolation?.source ?? 'no source'} grid, ${interpolation?.station_count ?? 0} input stations`;
@@ -171,6 +198,9 @@ export function LiveMap({
         </div>
         <button type="button" className="button button--secondary" onClick={onToggleHeatmap}>
           {showHeatmap ? 'Hide heatmap' : 'Show heatmap'}
+        </button>
+        <button type="button" className="button button--secondary" onClick={onToggleFireEvents}>
+          {showFireEvents ? 'Hide fires' : 'Show fires'}
         </button>
       </div>
       <div ref={containerRef} className="map-canvas" />

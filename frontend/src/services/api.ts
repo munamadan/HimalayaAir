@@ -1,10 +1,14 @@
 import type {
+  EventsResponse,
+  ForecastResponse,
   InterpolationResponse,
   PipelineHealthResponse,
   StationCurrentResponse,
   StationHistoryResponse,
   StationsResponse,
+  ValleyHistoryResponse,
   ValleyCurrentResponse,
+  WindRoseResponse,
 } from '../types/api';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:8000';
@@ -74,6 +78,34 @@ export function getStationHistory(stationId: number, pollutant = 'pm25', hours =
 
 export function getPipelineHealth(): Promise<PipelineHealthResponse> {
   return apiFetch<PipelineHealthResponse>('/api/pipeline/health');
+}
+
+export function getValleyHistory(
+  pollutant: string,
+  hours: number,
+  granularity: 'hour' | 'day',
+): Promise<ValleyHistoryResponse> {
+  const search = new URLSearchParams({ pollutant, hours: String(hours), granularity });
+  return apiFetch<ValleyHistoryResponse>(`/api/valley/history?${search.toString()}`);
+}
+
+export function getEvents(days: number, lat?: number, lon?: number): Promise<EventsResponse> {
+  const search = new URLSearchParams({ days: String(days), limit: '300' });
+  if (lat !== undefined && lon !== undefined) {
+    search.set('lat', String(lat));
+    search.set('lon', String(lon));
+  }
+  return apiFetch<EventsResponse>(`/api/events?${search.toString()}`);
+}
+
+export function getForecast(stationId: number, pollutant: string): Promise<ForecastResponse> {
+  const search = new URLSearchParams({ pollutant });
+  return apiFetch<ForecastResponse>(`/api/forecasts/${stationId}?${search.toString()}`);
+}
+
+export function getWindRose(hours = 24, bins = 16): Promise<WindRoseResponse> {
+  const search = new URLSearchParams({ hours: String(hours), bins: String(bins) });
+  return apiFetch<WindRoseResponse>(`/api/weather/wind-rose?${search.toString()}`);
 }
 
 function toApiUrl(path: string): string {

@@ -21,6 +21,7 @@ from services.api.models import (
     StationIdentity,
     StationSummary,
     ValleyHistoryPoint,
+    WindRoseBin,
 )
 from services.common.aqi_calculator import calculate_aqi, normalize_pollutant
 from shared.enums import Confidence, CoverageMode, ObservationType, SourceName
@@ -525,6 +526,54 @@ class ApiRepository:
             )
             for row in result.mappings()
         ]
+
+    async def fetch_wind_rose(self, *, hours: int, bins: int) -> list[WindRoseBin]:
+        degrees_per_bin = max(1, int(360 / max(1, bins)))
+        result = await self.session.execute(
+            text(
+                """
+                SELECT
+                    FLOOR(wind_dir / :degrees_per_bin)::int AS bin_index,
+                    AVG(wind_speed)::float8 AS avg_speed,
+                    COUNT(*)::int AS sample_count
+                FROM weather_readings
+                WHERE timestamp >= NOW() - (:hours * INTERVAL '1 hour')
+                  AND wind_dir IS NOT NULL
+                  AND wind_speed IS NOT NULL
+                GROUP BY bin_index
+                ORDER BY bin_index ASC
+                """
+            ),
+            {"hours": hours, "degrees_per_bin": degrees_per_bin},
+        )
+        by_index: dict[int, WindRoseBin] = {}
+        for row in result.mappings():
+            bin_index = int(row["bin_index"])
+            start = bin_index * degrees_per_bin
+            end = min(start + degrees_per_bin, 360)
+            by_index[bin_index] = WindRoseBin(
+                direction_start=start,
+                direction_end=end,
+                avg_speed=float(row["avg_speed"]) if row["avg_speed"] is not None else None,
+                sample_count=int(row["sample_count"]),
+            )
+        normalized: list[WindRoseBin] = []
+        for bin_index in range(max(1, bins)):
+            item = by_index.get(bin_index)
+            if item is not None:
+                normalized.append(item)
+                continue
+            start = bin_index * degrees_per_bin
+            end = min(start + degrees_per_bin, 360)
+            normalized.append(
+                WindRoseBin(
+                    direction_start=start,
+                    direction_end=end,
+                    avg_speed=None,
+                    sample_count=0,
+                )
+            )
+        return normalized
 
     async def fetch_forecast(self, station_id: int, *, pollutant: str) -> ForecastResponse:
         await self.fetch_station_identity(station_id)

@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
+  getEvents,
   getInterpolationCurrent,
   getPipelineHealth,
   getStationHistory,
   getStations,
   getValleyCurrent,
+  getWindRose,
 } from '../services/api';
 import type {
+  EventsResponse,
   InterpolationResponse,
   PipelineHealthResponse,
   StationHistorySet,
   StationsResponse,
   ValleyCurrentResponse,
+  WindRoseResponse,
 } from '../types/api';
 import { sortStationsForDisplay } from '../lib/aqi';
 
@@ -21,6 +25,8 @@ interface DashboardDataState {
   valley: ValleyCurrentResponse | null;
   interpolation: InterpolationResponse | null;
   pipelineHealth: PipelineHealthResponse | null;
+  events: EventsResponse | null;
+  windRose: WindRoseResponse | null;
   histories: StationHistorySet[];
   loading: boolean;
   refreshing: boolean;
@@ -34,6 +40,8 @@ export function useDashboardData(): DashboardDataState {
   const [valley, setValley] = useState<ValleyCurrentResponse | null>(null);
   const [interpolation, setInterpolation] = useState<InterpolationResponse | null>(null);
   const [pipelineHealth, setPipelineHealth] = useState<PipelineHealthResponse | null>(null);
+  const [events, setEvents] = useState<EventsResponse | null>(null);
+  const [windRose, setWindRose] = useState<WindRoseResponse | null>(null);
   const [histories, setHistories] = useState<StationHistorySet[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,11 +55,13 @@ export function useDashboardData(): DashboardDataState {
     setRefreshing(silent);
     setError(null);
 
-    const [stationsResult, valleyResult, interpolationResult, pipelineResult] = await Promise.allSettled([
+    const [stationsResult, valleyResult, interpolationResult, pipelineResult, eventsResult, windRoseResult] = await Promise.allSettled([
       getStations(),
       getValleyCurrent(),
       getInterpolationCurrent('pm25'),
       getPipelineHealth(),
+      getEvents(7),
+      getWindRose(24, 16),
     ]);
 
     const failures: string[] = [];
@@ -81,6 +91,16 @@ export function useDashboardData(): DashboardDataState {
     } else {
       failures.push(errorMessage(pipelineResult.reason, 'pipeline health'));
     }
+    if (eventsResult.status === 'fulfilled') {
+      setEvents(eventsResult.value);
+    } else {
+      failures.push(errorMessage(eventsResult.reason, 'fire events'));
+    }
+    if (windRoseResult.status === 'fulfilled') {
+      setWindRose(windRoseResult.value);
+    } else {
+      setWindRose(null);
+    }
 
     if (nextStations) {
       setHistories(await loadHistories(nextStations));
@@ -108,6 +128,8 @@ export function useDashboardData(): DashboardDataState {
     valley,
     interpolation,
     pipelineHealth,
+    events,
+    windRose,
     histories,
     loading,
     refreshing,

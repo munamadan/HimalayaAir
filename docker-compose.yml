@@ -433,11 +433,31 @@ services:
     mem_reservation: 192m
 
   replay-publisher:
-    <<: *python-placeholder
+    build:
+      context: .
+      dockerfile: services/replay_publisher/Dockerfile
     profiles: ["demo", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    environment:
+      SERVICE_NAME: replay-publisher
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+    command:
+      - python
+      - -m
+      - services.replay_publisher.main
+      - --fixture
+      - fixtures/replay_sample.json
+      - --speed
+      - "${REPLAY_SPEED:-60}"
+      - --loop
     depends_on:
       kafka:
         condition: service_healthy
+    mem_limit: 384m
+    mem_reservation: 192m
 
 networks:
   himalayaair:

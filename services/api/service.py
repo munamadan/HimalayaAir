@@ -21,6 +21,7 @@ from services.api.models import (
     StationsResponse,
     ValleyCurrentResponse,
     ValleyHistoryResponse,
+    WindRoseResponse,
 )
 from services.api.spatial import KATHMANDU_BOUNDS, build_idw_grid
 from shared.enums import Confidence, CoverageMode
@@ -39,6 +40,7 @@ class ApiRepositoryProtocol(Protocol):
     async def fetch_modeled_points(self, *, pollutant: str) -> list[AQPoint]: ...
     async def fetch_nearest_station(self, *, lat: float, lon: float) -> object | None: ...
     async def fetch_fire_events(self, *, days: int, limit: int, lat: float | None, lon: float | None) -> list[object]: ...
+    async def fetch_wind_rose(self, *, hours: int, bins: int) -> list[object]: ...
     async def fetch_forecast(self, station_id: int, *, pollutant: str) -> ForecastResponse: ...
     async def fetch_pipeline_runs(self) -> list[object]: ...
     async def fetch_latest_aq_timestamp(self) -> datetime | None: ...
@@ -186,6 +188,12 @@ async def get_events_response(repo: ApiRepositoryProtocol, *, days: int, limit: 
 
 async def get_forecast_response(repo: ApiRepositoryProtocol, *, station_id: int, pollutant: str) -> ForecastResponse:
     return await repo.fetch_forecast(station_id, pollutant=pollutant)
+
+
+async def get_wind_rose_response(repo: ApiRepositoryProtocol, *, hours: int, bins: int) -> WindRoseResponse:
+    values = await repo.fetch_wind_rose(hours=hours, bins=bins)
+    total_samples = sum(int(getattr(item, "sample_count", 0)) for item in values)
+    return WindRoseResponse(hours=hours, bins=list(values), total_samples=total_samples)
 
 
 async def get_pipeline_health_response(repo: ApiRepositoryProtocol, settings: ApiSettings) -> PipelineHealthResponse:

@@ -91,6 +91,22 @@ export interface StationHistoryResponse {
   readings: HistoryPoint[];
 }
 
+export interface ValleyHistoryPoint {
+  bucket_start: string;
+  pollutant: string;
+  avg_aqi: number | null;
+  max_aqi: number | null;
+  station_count: number;
+  reading_count: number;
+}
+
+export interface ValleyHistoryResponse {
+  pollutant: string | null;
+  hours: number;
+  granularity: 'hour' | 'day';
+  points: ValleyHistoryPoint[];
+}
+
 export interface StationHistorySet {
   station: StationSummary;
   history: StationHistoryResponse;
@@ -146,6 +162,59 @@ export interface PipelineHealthResponse {
   checks: Record<string, unknown>;
   pipeline_runs: PipelineRunHealth[];
   coverage: CoverageMetadata;
+}
+
+export interface FireEvent {
+  id: number;
+  lat: number;
+  lon: number;
+  acq_date: string;
+  acq_time: number | null;
+  satellite: string | null;
+  instrument: string | null;
+  confidence: string | null;
+  frp: number | null;
+  brightness: number | null;
+  source: string;
+  event_hash: string;
+  distance_km: number | null;
+}
+
+export interface EventsResponse {
+  events: FireEvent[];
+  count: number;
+}
+
+export interface WindRoseBin {
+  direction_start: number;
+  direction_end: number;
+  avg_speed: number | null;
+  sample_count: number;
+}
+
+export interface WindRoseResponse {
+  hours: number;
+  bins: WindRoseBin[];
+  total_samples: number;
+}
+
+export interface ForecastPoint {
+  target_timestamp: string;
+  horizon_hours: number;
+  predicted_aqi: number;
+  lower_bound: number | null;
+  upper_bound: number | null;
+}
+
+export interface ForecastResponse {
+  station_id: number;
+  pollutant: string;
+  generated_at: string;
+  model: string;
+  model_source: string;
+  fallback_reason: string | null;
+  historical_mae: number | null;
+  forecasts: ForecastPoint[];
 }
 
 export interface WebSocketEvent<TData = Record<string, unknown>> {
