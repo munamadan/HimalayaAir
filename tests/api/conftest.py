@@ -299,6 +299,8 @@ def api_test_settings() -> ApiSettings:
         openaq_health_url="http://openaq-poller:9090/health",
         weather_health_url="http://weather-poller:9091/health",
         modeled_aq_health_url="http://openmeteo-aq-poller:9092/health",
+        worker_health_url="http://worker:9093/health",
+        external_health_mode="worker",
         external_health_timeout_seconds=0.1,
     )
 

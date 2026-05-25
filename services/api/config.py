@@ -34,6 +34,8 @@ class ApiSettings:
     openaq_health_url: str
     weather_health_url: str
     modeled_aq_health_url: str
+    worker_health_url: str
+    external_health_mode: str
     external_health_timeout_seconds: float
 
     @classmethod
@@ -55,7 +57,7 @@ class ApiSettings:
             idw_power=_float_env("API_IDW_POWER", 2.0),
             websocket_heartbeat_seconds=_float_env("API_WEBSOCKET_HEARTBEAT_SECONDS", 20.0),
             kafka_consumer_enabled=_bool_env("API_KAFKA_CONSUMER_ENABLED", True),
-            kafka_health_enabled=_bool_env("API_KAFKA_HEALTH_ENABLED", True),
+            kafka_health_enabled=_bool_env("API_KAFKA_HEALTH_ENABLED", False),
             external_health_enabled=_bool_env("API_EXTERNAL_HEALTH_ENABLED", True),
             kafka_bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092"),
             kafka_group_id=os.getenv("API_KAFKA_GROUP_ID", "himalayaair-api-live-feed"),
@@ -64,6 +66,8 @@ class ApiSettings:
             openaq_health_url=os.getenv("API_OPENAQ_HEALTH_URL", "http://openaq-poller:9090/health"),
             weather_health_url=os.getenv("API_WEATHER_HEALTH_URL", "http://weather-poller:9091/health"),
             modeled_aq_health_url=os.getenv("API_MODELED_AQ_HEALTH_URL", "http://openmeteo-aq-poller:9092/health"),
+            worker_health_url=os.getenv("API_WORKER_HEALTH_URL", "http://worker:9093/health"),
+            external_health_mode=os.getenv("API_EXTERNAL_HEALTH_MODE", "worker").strip().lower(),
             external_health_timeout_seconds=_float_env("API_EXTERNAL_HEALTH_TIMEOUT_SECONDS", 2.0),
         )
 

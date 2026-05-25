@@ -5,7 +5,7 @@ profile="core"
 
 usage() {
   cat <<USAGE
-Usage: $0 [--profile core|stream|batch|weather|observed|demo|full]
+Usage: $0 [--profile core|legacy|stream|batch|weather|observed|demo|full]
 
 Checks Docker Compose configuration and health state for the selected profile.
 The default profile is core.
@@ -37,7 +37,10 @@ done
 services_for_profile() {
   case "$1" in
     core)
-      echo "timescaledb kafka api frontend"
+      echo "timescaledb api worker frontend"
+      ;;
+    legacy)
+      echo "timescaledb kafka spark-stream airflow-postgres airflow-webserver airflow-scheduler weather-poller openmeteo-aq-poller openaq-poller replay-publisher"
       ;;
     stream)
       echo "timescaledb kafka spark-stream"

@@ -1,20 +1,5 @@
 name: himalayaair
 
-x-python-placeholder: &python-placeholder
-  image: python:3.12-slim
-  restart: unless-stopped
-  networks:
-    - himalayaair
-  command: ["python", "-m", "http.server", "8080", "--bind", "0.0.0.0"]
-  healthcheck:
-    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080', timeout=2).read()"]
-    interval: 20s
-    timeout: 5s
-    retries: 5
-    start_period: 10s
-  mem_limit: 256m
-  mem_reservation: 128m
-
 x-airflow-common: &airflow-common
   image: apache/airflow:2.9.3-python3.11
   restart: unless-stopped
@@ -69,7 +54,7 @@ x-airflow-common: &airflow-common
 services:
   timescaledb:
     image: timescale/timescaledb-ha:pg16
-    profiles: ["core", "weather", "observed", "stream", "batch", "full"]
+    profiles: ["core", "legacy", "weather", "observed", "stream", "batch", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -92,7 +77,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    profiles: ["core", "observed", "stream", "full"]
+    profiles: ["legacy", "observed", "stream", "demo", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -129,6 +114,7 @@ services:
     build:
       context: .
       dockerfile: services/api/Dockerfile
+      network: ${DOCKER_BUILD_NETWORK:-host}
     profiles: ["core", "full"]
     restart: unless-stopped
     networks:
@@ -148,7 +134,10 @@ services:
       API_IDW_ROWS: ${API_IDW_ROWS:-50}
       API_IDW_COLS: ${API_IDW_COLS:-50}
       API_KAFKA_CONSUMER_ENABLED: ${API_KAFKA_CONSUMER_ENABLED:-true}
+      API_KAFKA_HEALTH_ENABLED: ${API_KAFKA_HEALTH_ENABLED:-false}
+      API_EXTERNAL_HEALTH_MODE: ${API_EXTERNAL_HEALTH_MODE:-worker}
       API_KAFKA_GROUP_ID: ${API_KAFKA_GROUP_ID:-himalayaair-api-live-feed}
+      API_WORKER_HEALTH_URL: ${API_WORKER_HEALTH_URL:-http://worker:9093/health}
       API_OPENAQ_HEALTH_URL: ${API_OPENAQ_HEALTH_URL:-http://openaq-poller:9090/health}
       API_WEATHER_HEALTH_URL: ${API_WEATHER_HEALTH_URL:-http://weather-poller:9091/health}
       API_MODELED_AQ_HEALTH_URL: ${API_MODELED_AQ_HEALTH_URL:-http://openmeteo-aq-poller:9092/health}
@@ -166,10 +155,47 @@ services:
     mem_limit: 256m
     mem_reservation: 128m
 
+  worker:
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile
+      network: ${DOCKER_BUILD_NETWORK:-host}
+    profiles: ["core", "full"]
+    restart: unless-stopped
+    networks:
+      - himalayaair
+    environment:
+      SERVICE_NAME: himalayaair-worker
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OPENAQ_API_KEY: ${OPENAQ_API_KEY:-}
+      SYNC_DATABASE_URL: ${SYNC_DATABASE_URL:-postgresql://himalayaair:himalayaair@timescaledb:5432/himalayaair}
+      WORKER_OPENAQ_INTERVAL_SECONDS: ${WORKER_OPENAQ_INTERVAL_SECONDS:-300}
+      WORKER_WEATHER_INTERVAL_SECONDS: ${WORKER_WEATHER_INTERVAL_SECONDS:-900}
+      WORKER_FORECAST_INTERVAL_SECONDS: ${WORKER_FORECAST_INTERVAL_SECONDS:-3600}
+      WORKER_ENABLE_OPENAQ: ${WORKER_ENABLE_OPENAQ:-true}
+      WORKER_ENABLE_WEATHER: ${WORKER_ENABLE_WEATHER:-true}
+      WORKER_ENABLE_FORECAST: ${WORKER_ENABLE_FORECAST:-true}
+      WORKER_BACKOFF_INITIAL_SECONDS: ${WORKER_BACKOFF_INITIAL_SECONDS:-30}
+      WORKER_BACKOFF_MAX_SECONDS: ${WORKER_BACKOFF_MAX_SECONDS:-900}
+      WORKER_HEALTH_HOST: ${WORKER_HEALTH_HOST:-0.0.0.0}
+      WORKER_HEALTH_PORT: ${WORKER_HEALTH_PORT:-9093}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9093/health', timeout=2).read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    mem_limit: 512m
+    mem_reservation: 256m
+
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      network: ${DOCKER_BUILD_NETWORK:-host}
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
         VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8000/ws/live-feed}
@@ -198,7 +224,8 @@ services:
     build:
       context: .
       dockerfile: services/spark/Dockerfile
-    profiles: ["stream", "full"]
+      network: ${DOCKER_BUILD_NETWORK:-host}
+    profiles: ["legacy", "stream", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -206,8 +233,8 @@ services:
       - /opt/spark/bin/spark-submit
       - --master
       - local[2]
-      - --packages
-      - org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.8
+      - --conf
+      - spark.jars.ivy=/tmp/.ivy2
       - /app/services/spark/jobs/aq_stream_processor.py
     environment:
       SERVICE_NAME: spark-stream
@@ -220,6 +247,7 @@ services:
       SPARK_TRIGGER_PROCESSING_TIME: ${SPARK_TRIGGER_PROCESSING_TIME:-30 seconds}
       SPARK_PIPELINE_COMPONENT: spark_aq_stream
       SPARK_PUBLISH_KAFKA: ${SPARK_PUBLISH_KAFKA:-true}
+      HOME: /tmp
     volumes:
       - spark-checkpoints:/tmp/spark-checkpoints
     depends_on:
@@ -238,7 +266,7 @@ services:
 
   airflow-postgres:
     image: postgres:16-alpine
-    profiles: ["batch", "full"]
+    profiles: ["legacy", "batch", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -261,7 +289,7 @@ services:
 
   airflow-init:
     <<: *airflow-common
-    profiles: ["batch", "full"]
+    profiles: ["legacy", "batch", "full"]
     restart: "no"
     entrypoint: /bin/bash
     command:
@@ -286,7 +314,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
-    profiles: ["batch", "full"]
+    profiles: ["legacy", "batch", "full"]
     command: ["webserver"]
     ports:
       - "${AIRFLOW_WEBSERVER_HOST_PORT:-8080}:8080"
@@ -304,7 +332,7 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
-    profiles: ["batch", "full"]
+    profiles: ["legacy", "batch", "full"]
     command: ["scheduler"]
     depends_on:
       airflow-init:
@@ -322,7 +350,8 @@ services:
     build:
       context: .
       dockerfile: services/weather_poller/Dockerfile
-    profiles: ["weather", "full"]
+      network: ${DOCKER_BUILD_NETWORK:-host}
+    profiles: ["legacy", "weather", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -360,7 +389,8 @@ services:
     build:
       context: .
       dockerfile: services/weather_poller/Dockerfile
-    profiles: ["weather", "full"]
+      network: ${DOCKER_BUILD_NETWORK:-host}
+    profiles: ["legacy", "weather", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -396,7 +426,8 @@ services:
     build:
       context: .
       dockerfile: services/openaq_poller/Dockerfile
-    profiles: ["observed", "full"]
+      network: ${DOCKER_BUILD_NETWORK:-host}
+    profiles: ["legacy", "observed", "full"]
     restart: unless-stopped
     networks:
       - himalayaair
@@ -436,7 +467,8 @@ services:
     build:
       context: .
       dockerfile: services/replay_publisher/Dockerfile
-    profiles: ["demo", "full"]
+      network: ${DOCKER_BUILD_NETWORK:-host}
+    profiles: ["legacy", "demo", "full"]
     restart: unless-stopped
     networks:
       - himalayaair

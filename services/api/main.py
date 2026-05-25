@@ -41,7 +41,7 @@ from services.api.service import (
     get_valley_history_response,
     get_wind_rose_response,
 )
-from services.api.websocket import ConnectionManager, KafkaLiveFeedConsumer
+from services.api.websocket import ConnectionManager, DBLiveFeedNotifier
 from shared.logging_config import configure_logging, get_logger
 
 
@@ -60,18 +60,22 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         app.state.settings = resolved_settings
         app.state.caches = caches
         app.state.connection_manager = manager
-        kafka_consumer: KafkaLiveFeedConsumer | None = None
+        db_notifier: DBLiveFeedNotifier | None = None
         if resolved_settings.kafka_consumer_enabled:
-            kafka_consumer = KafkaLiveFeedConsumer(settings=resolved_settings, manager=manager)
-            kafka_consumer.start()
-            logger.info("api_kafka_consumer_started", topic=resolved_settings.processed_aq_topic)
+            db_notifier = DBLiveFeedNotifier(
+                settings=resolved_settings,
+                manager=manager,
+                session_factory=get_session_factory(resolved_settings),
+            )
+            db_notifier.start()
+            logger.info("api_db_notifier_started")
         else:
             manager.consumer_status = {"status": "disabled"}
         try:
             yield
         finally:
-            if kafka_consumer is not None:
-                await kafka_consumer.stop()
+            if db_notifier is not None:
+                await db_notifier.stop()
             await close_database_engine()
 
     app = FastAPI(title="HimalayaAir API", version="0.10.0", lifespan=lifespan)

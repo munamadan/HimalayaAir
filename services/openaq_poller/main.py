@@ -8,16 +8,16 @@ from time import monotonic
 
 from pydantic import ValidationError
 
-from shared.kafka.client import KafkaPublishError
 from shared.logging_config import configure_logging, get_logger
 from shared.time_utils import format_utc, utc_now
+from services.common.aq_ingestion import DirectAQIngestionProcessor
 
 from services.openaq_poller.config import OpenAQPollerSettings
 from services.openaq_poller.db import PollerDatabase, PollerDatabaseError
 from services.openaq_poller.health_server import HealthState, start_health_server
 from services.openaq_poller.models import PollRunResult, PollWindow, SensorRegistryRow
 from services.openaq_poller.openaq_client import OpenAQClient, OpenAQClientError, OpenAQRateLimitError
-from services.openaq_poller.publisher import OpenAQReadingPublisher, build_raw_message, deduplicate_messages
+from services.openaq_poller.publisher import build_raw_message, deduplicate_messages
 from services.openaq_poller.window import compute_poll_window, status_from_counts
 
 
@@ -33,6 +33,7 @@ class OpenAQPoller:
         self.settings = settings
         self.logger = logger
         self.database = PollerDatabase(settings.database_url)
+        self.ingestion = DirectAQIngestionProcessor(settings.database_url, pipeline_component=settings.pipeline_component)
 
     def run_once(self, *, dry_run: bool) -> PollRunResult:
         started_at = utc_now()
@@ -56,7 +57,7 @@ class OpenAQPoller:
                 started_at=started_at,
                 started_monotonic=started_monotonic,
             )
-        except (PollerDatabaseError, OpenAQClientError, KafkaPublishError, ValidationError, ValueError) as exc:
+        except (PollerDatabaseError, OpenAQClientError, ValidationError, ValueError) as exc:
             result = _failed_result(
                 started_at=started_at,
                 started_monotonic=started_monotonic,
@@ -65,19 +66,6 @@ class OpenAQPoller:
                 error_message=str(exc),
             )
             self._log("error", "openaq_poll_run_failed", error=str(exc), dry_run=dry_run)
-
-        if not dry_run:
-            try:
-                self.database.record_pipeline_run(self.settings.pipeline_component, result)
-            except PollerDatabaseError as exc:
-                self._log("error", "openaq_pipeline_run_write_failed", error=str(exc))
-                result = _failed_result(
-                    started_at=started_at,
-                    started_monotonic=started_monotonic,
-                    dry_run=dry_run,
-                    window=window,
-                    error_message=str(exc),
-                )
 
         self._log(
             "info",
@@ -125,9 +113,7 @@ class OpenAQPoller:
             timeout_seconds=self.settings.http_timeout_seconds,
             retries=self.settings.http_retries,
         )
-        publisher = None if dry_run else OpenAQReadingPublisher(self.settings.kafka, logger=self.logger)
-
-        records_processed = 0
+        all_messages = []
         sensors_succeeded = 0
         sensors_failed = 0
         sensor_errors: list[dict[str, object]] = []
@@ -148,35 +134,45 @@ class OpenAQPoller:
                             for measurement in measurements
                         ]
                     )
-                    if publisher is not None:
-                        records_processed += publisher.publish(messages)
-                    else:
-                        records_processed += len(messages)
+                    all_messages.extend(messages)
                     sensors_succeeded += 1
                 except OpenAQRateLimitError as exc:
                     sensors_failed += 1
                     sensor_errors.append(_sensor_error(sensor, "rate_limited", str(exc)))
                     self._log("warning", "openaq_sensor_rate_limited", sensor_id=sensor.sensor_id, error=str(exc))
-                except (OpenAQClientError, KafkaPublishError, ValidationError, ValueError) as exc:
+                except (OpenAQClientError, ValidationError, ValueError) as exc:
                     sensors_failed += 1
                     sensor_errors.append(_sensor_error(sensor, "failed", str(exc)))
                     self._log("warning", "openaq_sensor_poll_failed", sensor_id=sensor.sensor_id, error=str(exc))
         finally:
             client.close()
 
+        ingestion_result = self.ingestion.ingest_messages(
+            all_messages,
+            dry_run=dry_run,
+            metadata={
+                "window_from": format_utc(window.datetime_from),
+                "window_to": format_utc(window.datetime_to),
+                "sensors_attempted": len(sensors),
+                "sensors_succeeded": sensors_succeeded,
+                "sensors_failed": sensors_failed,
+                "rate_limit_hits": client.rate_limit_hits,
+                "invalid_measurements": client.invalid_measurements,
+            },
+        )
         return _result(
             started_at=started_at,
             started_monotonic=started_monotonic,
             dry_run=dry_run,
             window=window,
-            records_processed=records_processed,
+            records_processed=ingestion_result.records_written if not dry_run else ingestion_result.records_processed,
             sensors_attempted=len(sensors),
             sensors_succeeded=sensors_succeeded,
             sensors_failed=sensors_failed,
             metadata={
                 "api_key_present": True,
-                "rate_limit_hits": client.rate_limit_hits,
-                "invalid_measurements": client.invalid_measurements,
+                "records_invalid": ingestion_result.records_invalid,
+                "anomaly_count": ingestion_result.anomaly_count,
                 "max_sensors": self.settings.max_sensors,
                 "sensor_errors": sensor_errors[:10],
             },

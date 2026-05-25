@@ -82,3 +82,23 @@ def test_connection_manager_skips_duplicate_batches():
 
     assert first is True
     assert second is False
+
+
+def test_connection_manager_broadcasts_db_timestamp_advance():
+    class _StubSocket:
+        def __init__(self) -> None:
+            self.messages = []
+
+        async def send_json(self, payload):
+            self.messages.append(payload)
+
+    async def run_check() -> dict:
+        manager = ConnectionManager()
+        socket = _StubSocket()
+        manager._connections.add(socket)
+        await manager.broadcast_timestamp_advance(utc_now())
+        return socket.messages[0]
+
+    message = asyncio.run(run_check())
+    assert message["event"] == "new_readings"
+    assert "latest_timestamp" in message["data"]

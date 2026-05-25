@@ -10,6 +10,7 @@ from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect
 
 from services.api.config import ApiSettings
+from services.api.repository import ApiRepository
 from shared.kafka.messages import ProcessedAQBatchSummaryMessage
 from shared.logging_config import get_logger
 from shared.time_utils import utc_now
@@ -53,6 +54,24 @@ class ConnectionManager:
         for websocket in stale_connections:
             await self.disconnect(websocket)
         return True
+
+    async def broadcast_timestamp_advance(self, latest_timestamp: datetime) -> None:
+        payload = {
+            "event": "new_readings",
+            "timestamp": utc_now().isoformat(),
+            "data": {"latest_timestamp": latest_timestamp.isoformat()},
+        }
+        async with self._lock:
+            connections = list(self._connections)
+        stale_connections: list[WebSocket] = []
+        for websocket in connections:
+            try:
+                await websocket.send_json(payload)
+            except Exception as exc:
+                stale_connections.append(websocket)
+                self._logger.warning("websocket_broadcast_failed", error=str(exc))
+        for websocket in stale_connections:
+            await self.disconnect(websocket)
 
     async def websocket_loop(self, websocket: WebSocket, *, heartbeat_seconds: float) -> None:
         try:
@@ -152,3 +171,55 @@ class KafkaLiveFeedConsumer:
 
 def _datetime_iso(value: datetime) -> str:
     return value.isoformat()
+
+
+class DBLiveFeedNotifier:
+    def __init__(self, *, settings: ApiSettings, manager: ConnectionManager, session_factory: object) -> None:
+        self.settings = settings
+        self.manager = manager
+        self.session_factory = session_factory
+        self._stop_event = asyncio.Event()
+        self._task: asyncio.Task[None] | None = None
+        self._logger = get_logger(__name__)
+        self._latest_timestamp: datetime | None = None
+
+    def start(self) -> None:
+        if self._task is None or self._task.done():
+            self._task = asyncio.create_task(self._run_forever(), name="api-db-live-feed")
+
+    async def stop(self) -> None:
+        self._stop_event.set()
+        if self._task is not None:
+            self._task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._task
+
+    async def _run_forever(self) -> None:
+        self.manager.consumer_status = {"status": "ok", "mode": "db_notifier", "started_at": utc_now().isoformat()}
+        while not self._stop_event.is_set():
+            try:
+                async with self.session_factory() as session:
+                    repo = ApiRepository(session, self.settings)
+                    latest_timestamp = await repo.fetch_latest_aq_timestamp()
+
+                if latest_timestamp is not None and (self._latest_timestamp is None or latest_timestamp > self._latest_timestamp):
+                    self._latest_timestamp = latest_timestamp
+                    await self.manager.broadcast_timestamp_advance(latest_timestamp)
+
+                self.manager.consumer_status = {
+                    "status": "ok",
+                    "mode": "db_notifier",
+                    "last_observed_timestamp": latest_timestamp.isoformat() if latest_timestamp else None,
+                    "checked_at": utc_now().isoformat(),
+                }
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                self.manager.consumer_status = {
+                    "status": "degraded",
+                    "mode": "db_notifier",
+                    "last_error": str(exc),
+                    "checked_at": utc_now().isoformat(),
+                }
+                self._logger.warning("api_db_notifier_retrying", error=str(exc), retry_seconds=self.settings.kafka_retry_seconds)
+            await asyncio.sleep(self.settings.kafka_retry_seconds)

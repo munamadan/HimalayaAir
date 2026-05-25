@@ -8,7 +8,6 @@ from time import monotonic
 
 from pydantic import ValidationError
 
-from shared.kafka.client import KafkaPublishError
 from shared.logging_config import configure_logging, get_logger
 from shared.time_utils import ensure_utc, utc_now
 
@@ -24,7 +23,6 @@ from services.weather_poller.openmeteo_client import (
     normalize_weather_response,
     quality_counts,
 )
-from services.weather_poller.publisher import WeatherReadingPublisher
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,7 +49,7 @@ class WeatherPoller:
                 started_monotonic=started_monotonic,
                 dry_run=dry_run,
             )
-        except (WeatherPollerDatabaseError, OpenMeteoClientError, KafkaPublishError, ValidationError, ValueError) as exc:
+        except (WeatherPollerDatabaseError, OpenMeteoClientError, ValidationError, ValueError) as exc:
             result = _failed_result(
                 started_at=started_at,
                 started_monotonic=started_monotonic,
@@ -98,10 +96,6 @@ class WeatherPoller:
             timeout_seconds=self.settings.http_timeout_seconds,
             retries=self.settings.http_retries,
         )
-        publisher = None
-        if self.settings.publish_kafka and not dry_run:
-            publisher = WeatherReadingPublisher(self.settings.kafka, logger=self.logger)
-
         weather_readings: list[WeatherReading] = []
         modeled_aq_readings: list[ModeledAQReading] = []
         component_errors: list[dict[str, object]] = []
@@ -161,17 +155,6 @@ class WeatherPoller:
             if "modeled_aq" in self.settings.components:
                 modeled_aq_inserted = self.database.insert_modeled_aq_readings(modeled_aq_readings)
 
-        kafka_errors: list[str] = []
-        weather_published = 0
-        modeled_aq_published = 0
-        if publisher is not None:
-            try:
-                weather_published = publisher.publish_weather(weather_readings)
-                modeled_aq_published = publisher.publish_modeled_aq(modeled_aq_readings)
-            except (KafkaPublishError, ValidationError) as exc:
-                kafka_errors.append(str(exc))
-                self._log("warning", "weather_kafka_publish_failed", error=str(exc))
-
         records_processed = len(weather_readings) + len(modeled_aq_readings) if dry_run else weather_inserted + modeled_aq_inserted
         return _result(
             started_at=started_at,
@@ -184,14 +167,14 @@ class WeatherPoller:
             weather_records=len(weather_readings),
             modeled_aq_records=len(modeled_aq_readings),
             component_errors=component_errors,
-            kafka_errors=kafka_errors,
+            kafka_errors=[],
             metadata={
                 "components": sorted(self.settings.components),
-                "publish_kafka": self.settings.publish_kafka,
+                "publish_kafka": False,
                 "weather_inserted": weather_inserted,
                 "modeled_aq_inserted": modeled_aq_inserted,
-                "weather_published": weather_published,
-                "modeled_aq_published": modeled_aq_published,
+                "weather_published": 0,
+                "modeled_aq_published": 0,
                 "weather_quality_counts": quality_counts(weather_readings),
                 "modeled_aq_quality_counts": quality_counts(modeled_aq_readings),
                 "rate_limit_hits": client.rate_limit_hits,

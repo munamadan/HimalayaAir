@@ -277,7 +277,7 @@ class ApiRepository:
                 FROM aq_readings
                 WHERE station_id = :station_id
                   AND timestamp >= NOW() - (:hours * INTERVAL '1 hour')
-                  AND (:pollutant IS NULL OR pollutant = :pollutant)
+                  AND (CAST(:pollutant AS text) IS NULL OR pollutant = CAST(:pollutant AS text))
                 ORDER BY timestamp ASC
                 LIMIT :limit
                 """
@@ -319,7 +319,7 @@ class ApiRepository:
                 WHERE timestamp >= NOW() - (:hours * INTERVAL '1 hour')
                   AND aqi IS NOT NULL
                   AND is_anomaly = FALSE
-                  AND (:pollutant IS NULL OR pollutant = :pollutant)
+                  AND (CAST(:pollutant AS text) IS NULL OR pollutant = CAST(:pollutant AS text))
                 GROUP BY bucket_start, pollutant
                 ORDER BY bucket_start ASC, pollutant ASC
                 """

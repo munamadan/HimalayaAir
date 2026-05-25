@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 
 
 def utc_now() -> datetime:
@@ -22,4 +24,3 @@ def parse_utc(value: str) -> datetime:
 
 def format_utc(value: datetime) -> str:
     return ensure_utc(value).isoformat().replace("+00:00", "Z")
-

@@ -2,6 +2,124 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Architecture Reset Session 1 Refinement - Worker Scheduling and Health Stabilization - 2026-05-25
+
+### Files changed
+
+- `services/worker/main.py`: Replaced sequential blocking loop with concurrent per-component async loops (`openaq`, `weather`, `forecast`) using fixed-rate scheduling, per-component enable flags, and isolated failure/backoff behavior.
+- `services/worker/health_server.py`: Added worker health state model and `/health` HTTP server with aggregate status and per-component runtime/metrics fields.
+- `services/api/config.py`: Added `API_WORKER_HEALTH_URL` and `API_EXTERNAL_HEALTH_MODE` settings.
+- `services/api/health_checks.py`: Added worker-mode external health checks that map worker component health into stable `openaq_poller`, `weather_poller`, and `openmeteo_aq_poller` keys; kept legacy URL checks available behind mode selection.
+- `docker-compose.yml`: Added worker healthcheck and worker runtime env defaults (`WORKER_ENABLE_*`, backoff, and health host/port), and set API external health defaults for worker mode in core runtime.
+- `.env.example`: Documented new API/worker health and worker scheduling/backoff environment variables.
+- `tests/worker/test_worker_runtime.py`: Added worker scheduling/backoff/health aggregation tests.
+- `tests/api/test_external_health_worker_mapping.py`: Added worker-health mapping unit test for API external checks.
+- `tests/api/conftest.py`: Updated API settings fixtures for new config fields.
+
+### Reason
+
+The monolith worker introduced in Architecture Reset Session 01 still used one sequential blocking loop, which allowed one failing/slow component to delay all others and did not provide worker-level health truth for core runtime pipeline checks.
+
+### Impact
+
+Core runtime now has isolated component loops with deterministic fixed-rate scheduling that skips catch-up bursts, per-component exponential backoff, and worker-native `/health` observability. API pipeline external checks can use worker health as the source of truth while preserving the existing response shape and service key contract.
+
+### Verification performed
+
+- `pytest -q tests/worker/test_worker_runtime.py tests/api/test_external_health_worker_mapping.py tests/api/test_health_events_websocket_contract.py`: passed.
+- `pytest -q`: passed (71 tests).
+- `docker compose --profile core config --quiet`: passed.
+- `docker compose --profile legacy config --quiet`: passed.
+- `docker compose --profile core up -d --build`: passed.
+- `./scripts/verify_env.sh --profile core`: passed.
+- `npm --prefix frontend run build`: passed.
+- `docker compose exec -T worker python -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:9093/health', timeout=3).read().decode())"`: passed.
+- `docker compose exec -T api python -c "import urllib.request, json; data=json.loads(urllib.request.urlopen('http://127.0.0.1:8000/api/pipeline/health', timeout=5).read().decode()); print(data['checks']['external_services'])"`: passed and confirmed worker-derived mapping keys.
+
+## Post-Phase-14 Data Pipeline Startup Fixes - 2026-05-09
+
+### Files changed
+
+- `docker-compose.yml`: Added explicit host-network build mode for project-built images, added Kafka to the `demo` profile, removed Spark runtime Maven resolution, and set Spark Ivy/HOME paths to writable absolute locations.
+- `services/api/repository.py`: Cast optional pollutant bind parameters in historical AQ queries so asyncpg can prepare station and valley history SQL reliably.
+- `services/spark/Dockerfile`: Pre-resolves Spark Kafka connector jars during image build, keeps them on Spark's runtime classpath, adds a named UID 1001 user entry for compatibility, and runs the local Spark stream container as root so named checkpoint volumes can be created reliably.
+- `shared/time_utils.py`: Replaced the Python 3.11-only `datetime.UTC` import with a Python 3.10-compatible `timezone.utc` alias for the Spark base image.
+
+### Reason
+
+Observed, weather, demo, and stream profiles did not reliably start. Builds failed on Docker DNS during dependency installation, Spark restarted on invalid Ivy cache paths, runtime Maven access, Python 3.10 incompatibility, missing UID metadata, and checkpoint-volume permissions. The demo profile also omitted Kafka even though replay publishing depends on it. A replay-backed API history check also exposed an asyncpg ambiguous-parameter error in optional pollutant filters.
+
+### Impact
+
+Core, observed, weather, stream, and demo profile startup is now reproducible in the local Docker environment when public DNS is available during image builds. Spark no longer depends on Maven access at container startup, and replay fixture records now flow through Kafka and Spark into TimescaleDB with `REPLAY_DEMO` provenance.
+
+### Verification performed
+
+- `docker compose --profile full config --quiet`: passed.
+- `docker compose --profile observed --profile weather --profile stream up -d --build`: passed after fixes.
+- `./scripts/verify_env.sh --profile observed`: passed.
+- `./scripts/verify_env.sh --profile weather`: passed.
+- `./scripts/verify_env.sh --profile stream`: passed.
+- `docker compose --profile demo config --quiet`: passed.
+- `docker compose --profile demo run --rm replay-publisher python -m services.replay_publisher.main --fixture fixtures/replay_sample.json --speed 60`: passed.
+- TimescaleDB verification after replay: `aq_readings` increased from 0 to 3 replay rows.
+- `curl 'http://localhost:8000/api/stations/1/history?pollutant=pm25&hours=4000'`: passed after rebuilding the API image.
+- External live polling remains blocked by local DNS resolution failures for `api.openaq.org`, `api.open-meteo.com`, and `air-quality-api.open-meteo.com`; pollers report these failures visibly in logs and pipeline status.
+
+## PHASE-14 Frontend Reset Script for Nginx Fallback - 2026-05-06
+
+### Files changed
+
+- `scripts/reset_frontend.sh`: Added deterministic frontend-only recovery script that rebuilds/recreates `frontend`, waits for health, and verifies HimalayaAir HTML markers while rejecting default `Welcome to nginx` content.
+- `README.md`: Added a frontend recovery section with the one-command fix path.
+
+### Reason
+
+`localhost:3000` intermittently appeared as default Nginx despite the expected frontend container. A repeatable, low-scope recovery path was needed.
+
+### Impact
+
+Developers now have a single command to recover frontend runtime state without restarting the full stack or deleting local data. The script also fails fast with diagnostics when content verification fails.
+
+### Verification performed
+
+- `./scripts/reset_frontend.sh`: passed in a running core environment.
+- `curl -sS http://localhost:3000 | rg -n "HimalayaAir|Welcome to nginx"`: passed with HimalayaAir markers and no default nginx content.
+
+## PHASE-14 Hardening, Benchmarks, Documentation, and Delivery - 2026-05-06
+
+### Files changed
+
+- `benchmarks/query_benchmark.py`: Added continuous aggregate vs raw SQL benchmark CLI with latency percentiles and row-count output.
+- `benchmarks/api_load_test.py`: Added async ~20-user load test CLI for core read endpoints with non-2xx/error-rate and latency summaries.
+- `benchmarks/seed_repro_data.py`: Added deterministic seed/check workflow for reproducible benchmark setup and table-count snapshots.
+- `docker-compose.yml`: Removed stale unused `x-python-placeholder` compose anchor.
+- `README.md`: Expanded to defense-ready architecture/setup/env/verification/limitations/screenshot documentation.
+- `docs/benchmark-results.md`: Added benchmark workflow, artifact contract, and reproducibility notes.
+- `docs/final-defense-script.md`: Added timed final-defense walkthrough script.
+- `docs/screenshots/README.md` and `docs/screenshots/*.png`: Added screenshot capture guide and placeholder PNGs.
+- `docs/phase-summaries/PHASE-14-summary.md`: Added Phase 14 completion summary and exit checklist.
+
+### Reason
+
+Phase 14 requires final hardening and delivery readiness: reproducible benchmark tooling, load-test coverage, cleanup of stale config, and defense-quality documentation without changing public API behavior.
+
+### Impact
+
+HimalayaAir now includes repeatable benchmark/load-test CLIs and delivery docs suitable for defense and recruiter review. The stale compose placeholder anchor was removed. Public REST/WebSocket contracts remain unchanged.
+
+### Verification performed
+
+- `python -m py_compile benchmarks/query_benchmark.py benchmarks/api_load_test.py benchmarks/seed_repro_data.py`: passed.
+- `./scripts/verify_env.sh`: failed in this run because core containers were not created/running.
+- `pytest -q`: passed (63 tests).
+- `npm --prefix frontend run build`: passed.
+- `python benchmarks/query_benchmark.py`: failed in this run with `psycopg2.OperationalError` (local DB unavailable).
+- `python benchmarks/seed_repro_data.py --skip-compose-up --skip-replay`: completed and recorded DB connection errors in JSON summary.
+- `python benchmarks/api_load_test.py --base-url http://127.0.0.1:8765 --concurrency 20 --requests-per-user 2 --timeout-seconds 1 --output tmp/benchmark-results/api-load-test.json`: passed against local temporary HTTP server to validate artifact generation.
+- `rg -n "(OPENAQ_API_KEY|FIRMS_MAP_KEY|VITE_MAPBOX_TOKEN|BEGIN PRIVATE KEY|AKIA|AIza|xoxb-)" -S .`: passed with expected references only (no committed secrets).
+
+
 ## PHASE-14 Frontend Docker Runtime Fix (`localhost:3000`) - 2026-05-06
 
 ### Files changed
@@ -639,3 +757,43 @@ Future Codex sessions can follow the one-phase workflow, locate the authoritativ
 ### Phase result
 
 Phase 00 exit criteria are met. The next phase is safe to start after this phase is reviewed and committed.
+
+## Architecture Reset Session 1 - Monolith Runtime Path - 2026-05-25
+
+### Files changed
+
+- `services/common/aq_ingestion.py`: Added shared direct-DB AQ ingestion processor that reuses Spark transform logic for AQI, anomaly detection, district assignment, dedup, station/station_sensor updates, and `pipeline_runs` metadata writes.
+- `services/openaq_poller/main.py`: Refactored OpenAQ poll flow from Kafka publish to direct DB ingestion through the shared processor.
+- `services/replay_publisher/main.py`: Refactored replay path from Kafka publish to direct DB ingestion with replay provenance.
+- `services/weather_poller/main.py`: Removed optional Kafka publish behavior and kept direct DB persistence path only.
+- `services/api/websocket.py`: Added DB-driven live notifier (`DBLiveFeedNotifier`) and timestamp-advance broadcast for `new_readings` events while keeping websocket event contracts.
+- `services/api/main.py`: Replaced Kafka websocket background consumer startup with DB notifier startup.
+- `services/api/config.py`: Changed Kafka health default to disabled compatibility mode for the transition session.
+- `services/worker/main.py`, `services/worker/__init__.py`, `services/worker/Dockerfile`: Added monolith worker runtime entrypoint and container image.
+- `docker-compose.yml`: Added `worker` to default `core` runtime, removed `kafka` from `core`, and moved distributed stack services under explicit `legacy` profile (while retaining existing service definitions).
+- `scripts/verify_env.sh`: Updated `core` expected services and added `legacy` profile verification target.
+- `scripts/run_direct_tasks.py`: Added direct Python task wrappers for forecast, quality, FIRMS, and backfill tasks without Airflow runtime.
+- `tests/unit/test_direct_ingestion_processor.py`: Added direct ingestion processor behavior test.
+- `tests/openaq/test_replay_direct_ingest.py`: Added replay direct-ingestion path test.
+- `tests/api/test_health_events_websocket_contract.py`: Added DB timestamp-driven `new_readings` websocket emission test.
+
+### Reason
+
+Session 1 of the architecture reset introduces a simplified monolith-style runtime path and keeps public API/websocket contracts stable while retaining legacy distributed services behind an explicit profile.
+
+### Impact
+
+- Default Compose runtime is now `timescaledb + api + worker + frontend`.
+- OpenAQ observed ingestion and replay demo ingestion write directly to DB with provenance preserved.
+- Weather/model pollers continue direct DB writes with Kafka publish removed.
+- `/ws/live-feed` remains stable and now emits `new_readings` based on DB timestamp advancement instead of Kafka processed-batch messages.
+- Legacy Kafka/Spark/Airflow services remain available behind `legacy` profile for transition validation.
+
+### Verification performed
+
+- `python -m py_compile services/common/aq_ingestion.py services/openaq_poller/main.py services/replay_publisher/main.py services/api/websocket.py services/api/main.py services/worker/main.py scripts/run_direct_tasks.py`: passed.
+- `docker compose config --quiet`: passed.
+- `docker compose --profile core config --quiet && docker compose --profile legacy config --quiet`: passed.
+- `pytest -q`: passed (66 tests).
+- `npm --prefix frontend run build`: passed.
+- `./scripts/verify_env.sh --profile core`: failed in this environment because core services were not created/running (`not_created` for all core services).
