@@ -2,6 +2,32 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Post-Phase-14 Fire Layer Removal - 2026-06-04
+
+### Files changed
+
+- `frontend/src/App.tsx`: Removed fire-layer toggle state and LiveMap props.
+- `frontend/src/components/LiveMap.tsx`: Removed the fire GeoJSON source, fire circle layer, fire layer update effect, and fire toggle control.
+- `frontend/src/hooks/useDashboardData.ts`: Removed dashboard fire-event fetching and state.
+- `frontend/src/services/api.ts` and `frontend/src/types/api.ts`: Removed unused frontend `/api/events` client helper and fire event response types.
+- `frontend/src/components/HistoricalExplorer.tsx`, `frontend/src/components/HistoricalTimeSeries.tsx`, and `frontend/src/lib/historical.ts`: Removed fire-event historical annotations, event fetches, and related annotation kind support.
+- `frontend/src/styles/global.css`: Removed fire annotation band styling.
+- `docs/phase-summaries/POST-PHASE-14-smooth-map-drag-refactor-summary.md`: Updated the current maintenance summary to reflect station-only map overlays.
+
+### Reason
+
+The fire layer is no longer needed in the product UI and should not consume frontend state, API calls, map layers, controls, or historical annotation space.
+
+### Impact
+
+The frontend no longer calls `/api/events` or renders fire overlays anywhere. The live map is now station markers plus optional AQI heatmap only. Backend FIRMS ingestion/API code remains intact because removing those data-pipeline pieces would be a broader architecture change.
+
+### Verification performed
+
+- `rg -n "fire|Fire|FIRES|himalayaair-fires|getEvents|EventsResponse|FireEvent|showFire|eventPromise|/api/events" frontend/src`: passed with no matches.
+- `npm --prefix frontend run build`: passed.
+- `npm --prefix frontend run lint`: passed.
+
 ## Post-Phase-14 Smooth Map Drag Refactor - 2026-06-04
 
 ### Files changed

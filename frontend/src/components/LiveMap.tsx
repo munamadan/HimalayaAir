@@ -13,7 +13,7 @@ import {
   type MapPopup,
   type MapProvider,
 } from '../services/mapEngine';
-import type { FireEvent, InterpolationResponse, StationSummary } from '../types/api';
+import type { InterpolationResponse, StationSummary } from '../types/api';
 
 const KATHMANDU_CENTER: [number, number] = [85.324, 27.7172];
 const HEATMAP_SOURCE_ID = 'himalayaair-current-grid';
@@ -22,8 +22,6 @@ const STATIONS_SOURCE_ID = 'himalayaair-stations';
 const STATIONS_SELECTED_LAYER_ID = 'himalayaair-stations-selected';
 const STATIONS_CIRCLE_LAYER_ID = 'himalayaair-stations-circles';
 const STATIONS_LABEL_LAYER_ID = 'himalayaair-stations-labels';
-const FIRES_SOURCE_ID = 'himalayaair-fires';
-const FIRES_LAYER_ID = 'himalayaair-fires-circles';
 
 interface PointFeatureCollection {
   type: 'FeatureCollection';
@@ -44,11 +42,8 @@ interface LiveMapProps {
   interpolation: InterpolationResponse | null;
   selectedStationId: number | null;
   showHeatmap: boolean;
-  showFireEvents: boolean;
-  fireEvents: FireEvent[];
   onSelectStation: (stationId: number) => void;
   onToggleHeatmap: () => void;
-  onToggleFireEvents: () => void;
 }
 
 export function LiveMap({
@@ -56,11 +51,8 @@ export function LiveMap({
   interpolation,
   selectedStationId,
   showHeatmap,
-  showFireEvents,
-  fireEvents,
   onSelectStation,
   onToggleHeatmap,
-  onToggleFireEvents,
 }: LiveMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapInstance | null>(null);
@@ -111,7 +103,6 @@ export function LiveMap({
         map.addControl(new engine.mapModule.AttributionControl({ compact: true }), 'bottom-left');
         map.on('load', () => {
           ensureStationLayers(map);
-          ensureFireLayer(map);
           registerStationLayerEvents(map, selectStationRef);
           setMapReady(true);
         });
@@ -173,18 +164,6 @@ export function LiveMap({
     upsertHeatmap(mapRef.current, image.url, image.coordinates);
   }, [interpolation, mapReady, showHeatmap]);
 
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) {
-      return;
-    }
-    ensureFireLayer(mapRef.current);
-    if (!showFireEvents) {
-      setGeoJsonSourceData(mapRef.current, FIRES_SOURCE_ID, emptyFeatureCollection());
-      return;
-    }
-    setGeoJsonSourceData(mapRef.current, FIRES_SOURCE_ID, firesToFeatures(fireEvents));
-  }, [fireEvents, mapReady, showFireEvents]);
-
   const heatmapStatus = interpolation?.insufficient_data
     ? interpolation.message
     : `${interpolation?.source ?? 'no source'} grid, ${interpolation?.station_count ?? 0} input stations`;
@@ -196,9 +175,6 @@ export function LiveMap({
         <span className="layer-chip layer-chip--static">Stations</span>
         <button type="button" className="button button--secondary" onClick={onToggleHeatmap}>
           {showHeatmap ? 'AQI heatmap on' : 'AQI heatmap off'}
-        </button>
-        <button type="button" className="button button--secondary" onClick={onToggleFireEvents}>
-          {showFireEvents ? 'Fire layer on' : 'Fire layer off'}
         </button>
       </div>
       <div className="map-panel__footer">
@@ -328,30 +304,6 @@ function ensureStationLayers(map: MapInstance): void {
   }
 }
 
-function ensureFireLayer(map: MapInstance): void {
-  if (!map.getSource(FIRES_SOURCE_ID)) {
-    map.addSource(FIRES_SOURCE_ID, {
-      type: 'geojson',
-      data: emptyFeatureCollection(),
-    });
-  }
-
-  if (!map.getLayer(FIRES_LAYER_ID)) {
-    map.addLayer({
-      id: FIRES_LAYER_ID,
-      source: FIRES_SOURCE_ID,
-      type: 'circle',
-      paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 12, 5.5, 14, 7],
-        'circle-color': '#d9471e',
-        'circle-opacity': 0.86,
-        'circle-stroke-color': 'rgba(255, 250, 240, 0.92)',
-        'circle-stroke-width': 1.2,
-      },
-    });
-  }
-}
-
 function registerStationLayerEvents(map: MapInstance, selectStationRef: MutableRefObject<(stationId: number) => void>): void {
   const handleClick = (event: { features?: Array<{ properties?: Record<string, unknown> }> }) => {
     const stationId = Number(event.features?.[0]?.properties?.stationId);
@@ -403,24 +355,6 @@ function stationsToFeatures(stations: StationSummary[], selectedStationId: numbe
         },
       };
     }),
-  };
-}
-
-function firesToFeatures(fireEvents: FireEvent[]): PointFeatureCollection {
-  return {
-    type: 'FeatureCollection',
-    features: fireEvents.map((event) => ({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [event.lon, event.lat],
-      },
-      properties: {
-        fireId: event.id,
-        confidence: event.confidence,
-        acqDate: event.acq_date,
-      },
-    })),
   };
 }
 

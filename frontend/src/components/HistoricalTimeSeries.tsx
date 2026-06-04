@@ -22,7 +22,7 @@ export interface AnnotationBand {
   label: string;
   start: string;
   end: string;
-  kind: 'season' | 'festival' | 'policy' | 'fire';
+  kind: 'season' | 'festival' | 'policy';
 }
 
 const WIDTH = 980;

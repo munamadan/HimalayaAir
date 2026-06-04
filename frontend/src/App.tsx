@@ -22,7 +22,6 @@ function App() {
   const dashboard = useDashboardData();
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
-  const [showFireEvents, setShowFireEvents] = useState(true);
   const [historicalPollutant, setHistoricalPollutant] = useState('pm25');
 
   const handleLiveEvent = useCallback(
@@ -118,11 +117,8 @@ function App() {
             interpolation={dashboard.interpolation}
             selectedStationId={selectedStationId}
             showHeatmap={showHeatmap}
-            showFireEvents={showFireEvents}
-            fireEvents={dashboard.events?.events ?? []}
             onSelectStation={setSelectedStationId}
             onToggleHeatmap={() => setShowHeatmap((current) => !current)}
-            onToggleFireEvents={() => setShowFireEvents((current) => !current)}
           />
           <div className="station-float">
             <StationPopup

@@ -1,5 +1,4 @@
 import type {
-  EventsResponse,
   ForecastResponse,
   InterpolationResponse,
   PipelineHealthResponse,
@@ -87,15 +86,6 @@ export function getValleyHistory(
 ): Promise<ValleyHistoryResponse> {
   const search = new URLSearchParams({ pollutant, hours: String(hours), granularity });
   return apiFetch<ValleyHistoryResponse>(`/api/valley/history?${search.toString()}`);
-}
-
-export function getEvents(days: number, lat?: number, lon?: number): Promise<EventsResponse> {
-  const search = new URLSearchParams({ days: String(days), limit: '300' });
-  if (lat !== undefined && lon !== undefined) {
-    search.set('lat', String(lat));
-    search.set('lon', String(lon));
-  }
-  return apiFetch<EventsResponse>(`/api/events?${search.toString()}`);
 }
 
 export function getForecast(stationId: number, pollutant: string): Promise<ForecastResponse> {

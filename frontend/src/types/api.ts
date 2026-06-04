@@ -164,27 +164,6 @@ export interface PipelineHealthResponse {
   coverage: CoverageMetadata;
 }
 
-export interface FireEvent {
-  id: number;
-  lat: number;
-  lon: number;
-  acq_date: string;
-  acq_time: number | null;
-  satellite: string | null;
-  instrument: string | null;
-  confidence: string | null;
-  frp: number | null;
-  brightness: number | null;
-  source: string;
-  event_hash: string;
-  distance_km: number | null;
-}
-
-export interface EventsResponse {
-  events: FireEvent[];
-  count: number;
-}
-
 export interface WindRoseBin {
   direction_start: number;
   direction_end: number;

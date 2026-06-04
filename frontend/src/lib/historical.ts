@@ -1,4 +1,4 @@
-import type { FireEvent, ForecastPoint, HistoryPoint, ValleyHistoryPoint } from '../types/api';
+import type { ForecastPoint, HistoryPoint, ValleyHistoryPoint } from '../types/api';
 
 export type HistoryGranularity = 'hour' | 'day';
 export type HistoryScope = 'valley' | 'station';
@@ -109,15 +109,6 @@ export function buildCalendarCells(points: ExplorerPoint[], startIso: string, en
     });
   }
   return cells;
-}
-
-export function filterEventsToRange(events: FireEvent[], startIso: string, endIso: string): FireEvent[] {
-  const start = startOfDayUtc(startIso);
-  const end = startOfDayUtc(endIso) + (DAY_MS - 1);
-  return events.filter((event) => {
-    const ts = new Date(`${event.acq_date}T00:00:00Z`).getTime();
-    return ts >= start && ts <= end;
-  });
 }
 
 export function bestSixHourWindows(forecast: ForecastPoint[], limit = 3): BestWindow[] {

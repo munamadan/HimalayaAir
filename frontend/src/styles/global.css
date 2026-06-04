@@ -716,10 +716,6 @@ main {
   fill: var(--crimson);
 }
 
-.historical-time-series__band--fire {
-  fill: #d9772b;
-}
-
 .forecast-windows h3 {
   margin: 16px 0 8px;
   font-size: 1rem;

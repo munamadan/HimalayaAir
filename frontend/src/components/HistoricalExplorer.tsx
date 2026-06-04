@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { getEvents, getStationHistory, getValleyHistory } from '../services/api';
-import type { FireEvent, StationSummary } from '../types/api';
+import { getStationHistory, getValleyHistory } from '../services/api';
+import type { StationSummary } from '../types/api';
 import {
   aggregateToDaily,
   buildCalendarCells,
   buildExplorerPointsFromStation,
   buildExplorerPointsFromValley,
   clampHistoryHours,
-  filterEventsToRange,
   filterPointsToRange,
   type ExplorerPoint,
   type HistoryGranularity,
@@ -35,13 +34,11 @@ export function HistoricalExplorer({ stations, pollutant, onPollutantChange }: H
   const [endDate, setEndDate] = useState(toDateInput(new Date()));
   const [startDate, setStartDate] = useState(toDateInput(daysAgo(90)));
   const [points, setPoints] = useState<ExplorerPoint[]>([]);
-  const [events, setEvents] = useState<FireEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTihar, setShowTihar] = useState(true);
   const [showMonsoon, setShowMonsoon] = useState(true);
   const [showCovid, setShowCovid] = useState(true);
-  const [showFire, setShowFire] = useState(true);
   const [retryNonce, setRetryNonce] = useState(0);
 
   const hours = useMemo(() => {
@@ -65,23 +62,19 @@ export function HistoricalExplorer({ stations, pollutant, onPollutantChange }: H
       setLoading(true);
       setError(null);
       try {
-        const eventPromise = getEvents(Math.max(1, Math.ceil(hours / 24)));
         const historyPoints =
           scope === 'valley'
             ? buildExplorerPointsFromValley((await getValleyHistory(pollutant, hours, granularity)).points)
             : buildExplorerPointsFromStation((await getStationHistory(stationId as number, pollutant, hours)).readings);
-        const eventResult = await eventPromise;
         if (cancelled) {
           return;
         }
         const filtered = filterPointsToRange(historyPoints, `${startDate}T00:00:00Z`, `${endDate}T23:59:59Z`);
         setPoints(granularity === 'day' ? aggregateToDaily(filtered, TIME_ZONE) : filtered);
-        setEvents(filterEventsToRange(eventResult.events, `${startDate}T00:00:00Z`, `${endDate}T23:59:59Z`));
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : 'Could not load historical explorer data.');
           setPoints([]);
-          setEvents([]);
         }
       } finally {
         if (!cancelled) {
@@ -126,19 +119,8 @@ export function HistoricalExplorer({ stations, pollutant, onPollutantChange }: H
         kind: 'policy',
       });
     }
-    if (showFire) {
-      events.forEach((event) => {
-        bands.push({
-          id: `fire-${event.id}`,
-          label: `Fire event (${event.source})`,
-          start: `${event.acq_date}T00:00:00Z`,
-          end: `${event.acq_date}T23:59:59Z`,
-          kind: 'fire',
-        });
-      });
-    }
     return bands.filter((band) => intersectsRange(band.start, band.end, `${startDate}T00:00:00Z`, `${endDate}T23:59:59Z`));
-  }, [endDate, events, showCovid, showFire, showMonsoon, showTihar, startDate]);
+  }, [endDate, showCovid, showMonsoon, showTihar, startDate]);
 
   return (
     <section id="historical" className="historical-card" aria-label="Historical explorer">
@@ -199,10 +181,9 @@ export function HistoricalExplorer({ stations, pollutant, onPollutantChange }: H
         <label><input type="checkbox" checked={showTihar} onChange={(event) => setShowTihar(event.target.checked)} /> Tihar</label>
         <label><input type="checkbox" checked={showMonsoon} onChange={(event) => setShowMonsoon(event.target.checked)} /> Monsoon</label>
         <label><input type="checkbox" checked={showCovid} onChange={(event) => setShowCovid(event.target.checked)} /> COVID</label>
-        <label><input type="checkbox" checked={showFire} onChange={(event) => setShowFire(event.target.checked)} /> Fire events</label>
       </div>
 
-      {loading && <LoadingState title="Loading historical data" detail="Querying bounded history, events, and annotation overlays." />}
+      {loading && <LoadingState title="Loading historical data" detail="Querying bounded history and annotation overlays." />}
       {error && <ErrorPanel message={error} onRetry={() => setRetryNonce((current) => current + 1)} />}
 
       {!loading && !error && (
