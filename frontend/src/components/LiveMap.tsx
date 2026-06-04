@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 
 import 'mapbox-gl/dist/mapbox-gl.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -10,7 +10,6 @@ import {
   loadMapEngine,
   type MapEngineModule,
   type MapInstance,
-  type MapMarker,
   type MapPopup,
   type MapProvider,
 } from '../services/mapEngine';
@@ -19,6 +18,26 @@ import type { FireEvent, InterpolationResponse, StationSummary } from '../types/
 const KATHMANDU_CENTER: [number, number] = [85.324, 27.7172];
 const HEATMAP_SOURCE_ID = 'himalayaair-current-grid';
 const HEATMAP_LAYER_ID = 'himalayaair-current-grid-layer';
+const STATIONS_SOURCE_ID = 'himalayaair-stations';
+const STATIONS_SELECTED_LAYER_ID = 'himalayaair-stations-selected';
+const STATIONS_CIRCLE_LAYER_ID = 'himalayaair-stations-circles';
+const STATIONS_LABEL_LAYER_ID = 'himalayaair-stations-labels';
+const FIRES_SOURCE_ID = 'himalayaair-fires';
+const FIRES_LAYER_ID = 'himalayaair-fires-circles';
+
+interface PointFeatureCollection {
+  type: 'FeatureCollection';
+  features: PointFeature[];
+}
+
+interface PointFeature {
+  type: 'Feature';
+  geometry: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  properties: Record<string, string | number | boolean | null>;
+}
 
 interface LiveMapProps {
   stations: StationSummary[];
@@ -46,9 +65,8 @@ export function LiveMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const mapModuleRef = useRef<MapEngineModule | null>(null);
-  const markersRef = useRef<Map<number, MapMarker>>(new Map());
   const popupRef = useRef<MapPopup | null>(null);
-  const fireMarkersRef = useRef<MapMarker[]>([]);
+  const selectStationRef = useRef(onSelectStation);
   const [mapReady, setMapReady] = useState(false);
   const [provider, setProvider] = useState<MapProvider | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -59,13 +77,16 @@ export function LiveMap({
   );
 
   useEffect(() => {
+    selectStationRef.current = onSelectStation;
+  }, [onSelectStation]);
+
+  useEffect(() => {
     if (!containerRef.current || mapRef.current) {
       return;
     }
 
     let cancelled = false;
     let mapInstance: MapInstance | null = null;
-    const markerStore = markersRef.current;
 
     loadMapEngine()
       .then((engine) => {
@@ -88,7 +109,12 @@ export function LiveMap({
         mapInstance = map;
         map.addControl(new engine.mapModule.NavigationControl({ visualizePitch: true }), 'bottom-right');
         map.addControl(new engine.mapModule.AttributionControl({ compact: true }), 'bottom-left');
-        map.on('load', () => setMapReady(true));
+        map.on('load', () => {
+          ensureStationLayers(map);
+          ensureFireLayer(map);
+          registerStationLayerEvents(map, selectStationRef);
+          setMapReady(true);
+        });
         map.on('error', (event: { error?: Error }) => {
           setNotice(event.error?.message || 'The map style could not be loaded.');
         });
@@ -99,10 +125,6 @@ export function LiveMap({
 
     return () => {
       cancelled = true;
-      markerStore.forEach((marker) => marker.remove());
-      markerStore.clear();
-      fireMarkersRef.current.forEach((marker) => marker.remove());
-      fireMarkersRef.current = [];
       popupRef.current?.remove();
       mapInstance?.remove();
       mapRef.current = null;
@@ -115,35 +137,19 @@ export function LiveMap({
       return;
     }
 
-    const map = mapRef.current;
-    const mapModule = mapModuleRef.current;
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current.clear();
-
-    stations.forEach((station) => {
-      const element = document.createElement('button');
-      const radius = markerRadius(station.current_aqi);
-      const band = getAqiBand(station.current_aqi);
-      element.type = 'button';
-      element.className = station.id === selectedStationId ? 'station-marker station-marker--selected' : 'station-marker';
-      element.style.width = `${radius}px`;
-      element.style.height = `${radius}px`;
-      element.style.background = band.color;
-      element.style.color = band.textColor;
-      element.setAttribute('aria-label', `${station.name}: AQI ${station.current_aqi ?? 'not available'}`);
-      element.textContent = station.current_aqi === null || station.current_aqi === undefined ? '' : String(station.current_aqi);
-      element.addEventListener('click', () => onSelectStation(station.id));
-
-      const marker = new mapModule.Marker({ element, anchor: 'center' }).setLngLat([station.lon, station.lat]).addTo(map);
-      markersRef.current.set(station.id, marker);
-    });
-  }, [mapReady, onSelectStation, selectedStationId, stations]);
+    ensureStationLayers(mapRef.current);
+    setGeoJsonSourceData(mapRef.current, STATIONS_SOURCE_ID, stationsToFeatures(stations, selectedStationId));
+  }, [mapReady, selectedStationId, stations]);
 
   useEffect(() => {
-    if (!mapReady || !mapRef.current || !mapModuleRef.current || !selectedStation) {
+    if (!mapReady || !mapRef.current || !mapModuleRef.current) {
       return;
     }
     popupRef.current?.remove();
+    if (!selectedStation) {
+      popupRef.current = null;
+      return;
+    }
     popupRef.current = new mapModuleRef.current.Popup({ closeButton: false, offset: 22, className: 'station-map-popup' })
       .setLngLat([selectedStation.lon, selectedStation.lat])
       .setHTML(renderPopupHtml(selectedStation))
@@ -168,21 +174,15 @@ export function LiveMap({
   }, [interpolation, mapReady, showHeatmap]);
 
   useEffect(() => {
-    if (!mapReady || !mapRef.current || !mapModuleRef.current) {
+    if (!mapReady || !mapRef.current) {
       return;
     }
-    fireMarkersRef.current.forEach((marker) => marker.remove());
-    fireMarkersRef.current = [];
+    ensureFireLayer(mapRef.current);
     if (!showFireEvents) {
+      setGeoJsonSourceData(mapRef.current, FIRES_SOURCE_ID, emptyFeatureCollection());
       return;
     }
-    fireMarkersRef.current = fireEvents.map((event) => {
-      const element = document.createElement('span');
-      element.className = 'fire-marker';
-      element.textContent = '\u25cf';
-      element.setAttribute('aria-label', `Fire event ${event.acq_date}`);
-      return new mapModuleRef.current!.Marker({ element, anchor: 'center' }).setLngLat([event.lon, event.lat]).addTo(mapRef.current!);
-    });
+    setGeoJsonSourceData(mapRef.current, FIRES_SOURCE_ID, firesToFeatures(fireEvents));
   }, [fireEvents, mapReady, showFireEvents]);
 
   const heatmapStatus = interpolation?.insufficient_data
@@ -233,10 +233,10 @@ function upsertHeatmap(
       source: HEATMAP_SOURCE_ID,
       type: 'raster',
       paint: {
-        'raster-opacity': 0.62,
-        'raster-fade-duration': 300,
+        'raster-opacity': 0.42,
+        'raster-fade-duration': 0,
       },
-    });
+    }, map.getLayer(STATIONS_SELECTED_LAYER_ID) ? STATIONS_SELECTED_LAYER_ID : undefined);
   }
 }
 
@@ -267,4 +267,166 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function ensureStationLayers(map: MapInstance): void {
+  if (!map.getSource(STATIONS_SOURCE_ID)) {
+    map.addSource(STATIONS_SOURCE_ID, {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+    });
+  }
+
+  if (!map.getLayer(STATIONS_SELECTED_LAYER_ID)) {
+    map.addLayer({
+      id: STATIONS_SELECTED_LAYER_ID,
+      source: STATIONS_SOURCE_ID,
+      type: 'circle',
+      filter: ['==', ['get', 'selected'], true],
+      paint: {
+        'circle-radius': ['+', ['get', 'radius'], 5],
+        'circle-color': '#ffffff',
+        'circle-opacity': 0.92,
+        'circle-stroke-color': '#b91f32',
+        'circle-stroke-width': 3,
+      },
+    });
+  }
+
+  if (!map.getLayer(STATIONS_CIRCLE_LAYER_ID)) {
+    map.addLayer({
+      id: STATIONS_CIRCLE_LAYER_ID,
+      source: STATIONS_SOURCE_ID,
+      type: 'circle',
+      paint: {
+        'circle-radius': ['get', 'radius'],
+        'circle-color': ['get', 'color'],
+        'circle-opacity': 0.95,
+        'circle-stroke-color': '#fffaf0',
+        'circle-stroke-width': 2,
+      },
+    });
+  }
+
+  if (!map.getLayer(STATIONS_LABEL_LAYER_ID)) {
+    map.addLayer({
+      id: STATIONS_LABEL_LAYER_ID,
+      source: STATIONS_SOURCE_ID,
+      type: 'symbol',
+      layout: {
+        'text-field': ['get', 'aqiLabel'],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 9, 9, 11, 10, 13, 12],
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+      },
+      paint: {
+        'text-color': ['get', 'textColor'],
+        'text-halo-color': 'rgba(255, 250, 240, 0.7)',
+        'text-halo-width': 0.5,
+      },
+    });
+  }
+}
+
+function ensureFireLayer(map: MapInstance): void {
+  if (!map.getSource(FIRES_SOURCE_ID)) {
+    map.addSource(FIRES_SOURCE_ID, {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+    });
+  }
+
+  if (!map.getLayer(FIRES_LAYER_ID)) {
+    map.addLayer({
+      id: FIRES_LAYER_ID,
+      source: FIRES_SOURCE_ID,
+      type: 'circle',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 12, 5.5, 14, 7],
+        'circle-color': '#d9471e',
+        'circle-opacity': 0.86,
+        'circle-stroke-color': 'rgba(255, 250, 240, 0.92)',
+        'circle-stroke-width': 1.2,
+      },
+    });
+  }
+}
+
+function registerStationLayerEvents(map: MapInstance, selectStationRef: MutableRefObject<(stationId: number) => void>): void {
+  const handleClick = (event: { features?: Array<{ properties?: Record<string, unknown> }> }) => {
+    const stationId = Number(event.features?.[0]?.properties?.stationId);
+    if (Number.isFinite(stationId)) {
+      selectStationRef.current(stationId);
+    }
+  };
+  const showPointer = () => {
+    map.getCanvas().style.cursor = 'pointer';
+  };
+  const hidePointer = () => {
+    map.getCanvas().style.cursor = '';
+  };
+
+  [STATIONS_CIRCLE_LAYER_ID, STATIONS_LABEL_LAYER_ID].forEach((layerId) => {
+    map.on('click', layerId, handleClick);
+    map.on('mouseenter', layerId, showPointer);
+    map.on('mouseleave', layerId, hidePointer);
+  });
+}
+
+function setGeoJsonSourceData(map: MapInstance, sourceId: string, data: PointFeatureCollection): void {
+  const source = map.getSource(sourceId);
+  if (source?.setData) {
+    source.setData(data);
+  }
+}
+
+function stationsToFeatures(stations: StationSummary[], selectedStationId: number | null): PointFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: stations.map((station) => {
+      const band = getAqiBand(station.current_aqi);
+      const aqiLabel = station.current_aqi === null || station.current_aqi === undefined ? '' : String(station.current_aqi);
+      return {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [station.lon, station.lat],
+        },
+        properties: {
+          stationId: station.id,
+          aqi: station.current_aqi,
+          aqiLabel,
+          color: band.color,
+          textColor: band.textColor,
+          selected: station.id === selectedStationId,
+          radius: markerRadius(station.current_aqi) / 2,
+        },
+      };
+    }),
+  };
+}
+
+function firesToFeatures(fireEvents: FireEvent[]): PointFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: fireEvents.map((event) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [event.lon, event.lat],
+      },
+      properties: {
+        fireId: event.id,
+        confidence: event.confidence,
+        acqDate: event.acq_date,
+      },
+    })),
+  };
+}
+
+function emptyFeatureCollection(): PointFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: [],
+  };
 }

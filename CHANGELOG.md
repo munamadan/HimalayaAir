@@ -2,6 +2,33 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Post-Phase-14 Smooth Map Drag Refactor - 2026-06-04
+
+### Files changed
+
+- `frontend/src/components/LiveMap.tsx`: Replaced DOM station and fire markers with MapLibre/Mapbox GeoJSON sources and WebGL circle/symbol layers, preserved station click selection and pointer cursor behavior, kept selected-station popup updates lightweight, and inserted heatmap raster below station layers.
+- `frontend/src/services/mapEngine.ts`: Extended the local map abstraction with GeoJSON `setData`, layer-specific events, canvas access, and optional layer insertion order.
+- `frontend/src/App.tsx`: Changed the default AQI heatmap state to off.
+- `frontend/src/styles/global.css`: Removed obsolete DOM marker styles now that stations and fire points render inside the map canvas.
+
+### Reason
+
+Station and fire points were rendered as DOM overlay markers, which could visually lag behind the map during mouse drag. Moving those points into native map layers keeps them attached to the WebGL map canvas and prioritizes interaction smoothness.
+
+### Impact
+
+The map now renders station AQI circles, AQI labels, selected-station highlight, and fire points as native map layers. Station clicks still update the selected-station side panel. The AQI heatmap remains available through the existing toggle, but starts disabled and uses lower-cost raster paint settings when enabled.
+
+### Verification performed
+
+- `npm --prefix frontend run build`: passed.
+- `npm --prefix frontend run lint`: passed.
+- `docker compose --profile core up -d --build`: passed with elevated Docker access.
+- `docker compose ps`: passed with `api`, `frontend`, `timescaledb`, and `worker` healthy.
+- `curl -sS -o /dev/null -w '%{http_code}' http://localhost:3000`: passed (`200`) with elevated local socket access.
+- `curl -sS -o /dev/null -w '%{http_code}' http://localhost:8000/health`: passed (`200`) with elevated local socket access.
+- `./scripts/verify_env.sh --profile core`: passed with elevated Docker/local socket access.
+
 ## Post-Phase-14 Frontend Map-First UI Refactor - 2026-06-04
 
 ### Files changed

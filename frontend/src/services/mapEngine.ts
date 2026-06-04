@@ -51,21 +51,30 @@ export interface MapImageSource {
     url: string;
     coordinates: [[number, number], [number, number], [number, number], [number, number]];
   }): void;
+  setData?(data: unknown): void;
 }
 
 export interface MapInstance {
   addControl(control: unknown, position?: string): void;
-  addLayer(layer: Record<string, unknown>): void;
+  addLayer(layer: Record<string, unknown>, beforeId?: string): void;
   addSource(id: string, source: Record<string, unknown>): void;
   easeTo(options: { center: [number, number]; zoom: number; duration: number }): void;
+  getCanvas(): HTMLCanvasElement;
   getLayer(id: string): unknown;
   getSource(id: string): MapImageSource | undefined;
   getZoom(): number;
   on(event: 'load', callback: () => void): void;
   on(event: 'error', callback: (event: { error?: Error }) => void): void;
+  on(event: 'click' | 'mouseenter' | 'mouseleave', layerId: string, callback: (event: MapLayerEvent) => void): void;
   remove(): void;
   removeLayer(id: string): void;
   removeSource(id: string): void;
+}
+
+export interface MapLayerEvent {
+  features?: Array<{
+    properties?: Record<string, unknown>;
+  }>;
 }
 
 export interface LoadedMapEngine {

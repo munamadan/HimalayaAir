@@ -21,7 +21,7 @@ import type { StationsResponse, WebSocketEvent } from './types/api';
 function App() {
   const dashboard = useDashboardData();
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
-  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false);
   const [showFireEvents, setShowFireEvents] = useState(true);
   const [historicalPollutant, setHistoricalPollutant] = useState('pm25');
 
