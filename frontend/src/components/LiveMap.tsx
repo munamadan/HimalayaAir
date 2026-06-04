@@ -79,9 +79,9 @@ export function LiveMap({
           container: containerRef.current,
           style: engine.styleUrl,
           center: KATHMANDU_CENTER,
-          zoom: 11.2,
-          pitch: 48,
-          bearing: -18,
+          zoom: 11.35,
+          pitch: 0,
+          bearing: 0,
           attributionControl: false,
         });
         mapRef.current = map;
@@ -191,19 +191,16 @@ export function LiveMap({
 
   return (
     <section className="map-panel" aria-label="Kathmandu Valley live AQI map">
-      <div className="map-panel__toolbar">
-        <div>
-          <span className="eyebrow">Live map</span>
-          <h2>Kathmandu Valley sensor field</h2>
-        </div>
+      <div ref={containerRef} className="map-canvas" />
+      <div className="map-panel__toolbar" aria-label="Map layer controls">
+        <span className="layer-chip layer-chip--static">Stations</span>
         <button type="button" className="button button--secondary" onClick={onToggleHeatmap}>
-          {showHeatmap ? 'Hide heatmap' : 'Show heatmap'}
+          {showHeatmap ? 'AQI heatmap on' : 'AQI heatmap off'}
         </button>
         <button type="button" className="button button--secondary" onClick={onToggleFireEvents}>
-          {showFireEvents ? 'Hide fires' : 'Show fires'}
+          {showFireEvents ? 'Fire layer on' : 'Fire layer off'}
         </button>
       </div>
-      <div ref={containerRef} className="map-canvas" />
       <div className="map-panel__footer">
         <span>{provider ? `${provider} engine` : 'loading map engine'}</span>
         <span>{heatmapStatus}</span>

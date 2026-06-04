@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { AqiGauge } from './components/AqiGauge';
-import { CoverageRibbon } from './components/CoverageRibbon';
 import { ErrorPanel } from './components/ErrorPanel';
 import { ForecastPanel } from './components/ForecastPanel';
 import { HistoricalExplorer } from './components/HistoricalExplorer';
@@ -64,46 +62,77 @@ function App() {
   const reportingStations = sortedStations.filter(stationHasCurrentData).length;
   const displayAqi = dashboard.valley?.composite_aqi ?? dashboard.stations?.valley_composite_aqi ?? null;
   const cigaretteEquivalent = displayAqi === null ? null : Math.max(Math.round(displayAqi / 22), 0);
+  const greeting = getKathmanduGreeting();
+  const freshnessText = coverage?.fresh_station_count || coverage?.recent_station_count
+    ? `${coverage?.fresh_station_count ?? 0} fresh / ${coverage?.recent_station_count ?? 0} recent`
+    : 'station coverage sparse';
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="#top" aria-label="HimalayaAir dashboard home">
-          <span className="brand__mark">HA</span>
-          <span>
-            <strong>HimalayaAir</strong>
-            <small>Kathmandu Valley air-quality intelligence</small>
-          </span>
-        </a>
-        <nav aria-label="Dashboard sections">
-          <a href="#map">Map</a>
-          <a href="#charts">PM2.5</a>
-          <a href="#historical">Historical</a>
-          <a href="#forecast">Forecast</a>
-          <a href="#pipeline">Pipeline</a>
-          <a href="#method">Method</a>
-        </nav>
-      </header>
-
       <main id="top">
-        <section className="hero">
-          <div className="hero__copy">
-            <span className="eyebrow">Live dashboard core</span>
-            <h1>Pollution signals with source honesty built into the interface.</h1>
-            <p>
-              The dashboard prioritizes observed OpenAQ sensors, degrades to recent or modeled coverage when needed,
-              and exposes confidence, freshness, and provenance on every current view.
-            </p>
+        <section id="map" className="map-stage" aria-label="Kathmandu Valley air quality map">
+          <div className="map-commandbar">
+            <a className="brand" href="#top" aria-label="HimalayaAir dashboard home">
+              <span className="brand__mark">HA</span>
+              <span>
+                <strong>HimalayaAir</strong>
+                <small>Kathmandu Valley air-quality intelligence</small>
+              </span>
+            </a>
+            <div className="map-commandbar__greeting">
+              <span>{greeting}, Kathmandu</span>
+              <strong>{displayAqi === null ? 'No current AQI' : `AQI ${Math.round(displayAqi)}`}</strong>
+            </div>
+            <nav aria-label="Dashboard sections">
+              <a href="#map">Map</a>
+              <a href="#charts">Trends</a>
+              <a href="#forecast">Forecast</a>
+              <a href="#pipeline">Pipeline</a>
+            </nav>
+            <button type="button" className="button button--primary" onClick={() => void dashboard.refresh({ silent: true })}>
+              {dashboard.refreshing ? 'Refreshing' : 'Refresh'}
+            </button>
           </div>
-          <AqiGauge aqi={dashboard.valley?.composite_aqi ?? dashboard.stations?.valley_composite_aqi ?? null} label="Valley AQI" />
-        </section>
 
-        <CoverageRibbon
-          coverage={coverage}
-          lastUpdated={lastUpdated}
-          websocketStatus={liveFeed.status}
-          refreshing={dashboard.refreshing}
-        />
+          <div className="map-status-strip" aria-label="Current data status">
+            <div>
+              <span className="eyebrow">Coverage</span>
+              <strong>{formatCoverageMode(coverage?.coverage_mode)}</strong>
+            </div>
+            <div>
+              <span className="eyebrow">Observed stations</span>
+              <strong>{freshnessText}</strong>
+            </div>
+            <div>
+              <span className="eyebrow">Updated</span>
+              <strong>{dashboard.refreshing ? 'refreshing' : formatTimestamp(lastUpdated)}</strong>
+            </div>
+            <div className="ws-state">
+              <span className={`status-dot status-dot--${liveFeed.status}`} />
+              <span>{liveFeed.status}</span>
+            </div>
+          </div>
+
+          <LiveMap
+            stations={sortedStations}
+            interpolation={dashboard.interpolation}
+            selectedStationId={selectedStationId}
+            showHeatmap={showHeatmap}
+            showFireEvents={showFireEvents}
+            fireEvents={dashboard.events?.events ?? []}
+            onSelectStation={setSelectedStationId}
+            onToggleHeatmap={() => setShowHeatmap((current) => !current)}
+            onToggleFireEvents={() => setShowFireEvents((current) => !current)}
+          />
+          <div className="station-float">
+            <StationPopup
+              station={selectedStation}
+              current={selectedCurrent.current}
+              loading={selectedCurrent.loading}
+              error={selectedCurrent.error}
+            />
+          </div>
+        </section>
 
         {dashboard.loading && !dashboard.stations && (
           <LoadingState title="Loading dashboard state" detail="Fetching stations, interpolation, charts, and pipeline health from FastAPI." />
@@ -119,26 +148,6 @@ function App() {
             label="Cigarette Eq."
             value={cigaretteEquivalent === null ? 'n/a' : `${cigaretteEquivalent}`}
             detail="estimated equivalent cigarette exposure for one day at current AQI"
-          />
-        </section>
-
-        <section id="map" className="live-grid">
-          <LiveMap
-            stations={sortedStations}
-            interpolation={dashboard.interpolation}
-            selectedStationId={selectedStationId}
-            showHeatmap={showHeatmap}
-            showFireEvents={showFireEvents}
-            fireEvents={dashboard.events?.events ?? []}
-            onSelectStation={setSelectedStationId}
-            onToggleHeatmap={() => setShowHeatmap((current) => !current)}
-            onToggleFireEvents={() => setShowFireEvents((current) => !current)}
-          />
-          <StationPopup
-            station={selectedStation}
-            current={selectedCurrent.current}
-            loading={selectedCurrent.loading}
-            error={selectedCurrent.error}
           />
         </section>
 
@@ -186,3 +195,21 @@ function isStationsResponse(data: unknown): data is StationsResponse {
 }
 
 export default App;
+
+function getKathmanduGreeting(): string {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: 'Asia/Kathmandu',
+    }).format(new Date()),
+  );
+
+  if (hour < 12) {
+    return 'Good morning';
+  }
+  if (hour < 17) {
+    return 'Good afternoon';
+  }
+  return 'Good evening';
+}

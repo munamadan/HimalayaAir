@@ -1,5 +1,5 @@
-const MAPLIBRE_DARK_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
-const MAPBOX_DARK_STYLE = 'mapbox://styles/mapbox/dark-v11';
+const MAPLIBRE_DEFAULT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+const MAPBOX_DEFAULT_STYLE = 'mapbox://styles/mapbox/light-v11';
 
 export type MapProvider = 'mapbox' | 'maplibre';
 
@@ -87,14 +87,14 @@ export async function loadMapEngine(): Promise<LoadedMapEngine> {
     return {
       mapModule,
       provider: 'mapbox',
-      styleUrl: configuredStyle || MAPBOX_DARK_STYLE,
+      styleUrl: configuredStyle || MAPBOX_DEFAULT_STYLE,
       notice: null,
     };
   }
 
   const maplibre = await import('maplibre-gl');
   const mapModule = (maplibre.default ?? maplibre) as unknown as MapEngineModule;
-  const styleUrl = configuredStyle && !configuredStyle.startsWith('mapbox://') ? configuredStyle : MAPLIBRE_DARK_STYLE;
+  const styleUrl = configuredStyle && !configuredStyle.startsWith('mapbox://') ? configuredStyle : MAPLIBRE_DEFAULT_STYLE;
   return {
     mapModule,
     provider: 'maplibre',

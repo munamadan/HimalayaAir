@@ -2,6 +2,32 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Post-Phase-14 Frontend Map-First UI Refactor - 2026-06-04
+
+### Files changed
+
+- `frontend/src/App.tsx`: Replaced the previous hero-first dashboard shell with a map-led control room layout, place-based Kathmandu greeting, compact coverage/status strip, refresh action, and floating selected-station panel.
+- `frontend/src/components/LiveMap.tsx`: Simplified the map chrome into compact layer controls and switched the initial map camera to a flatter navigation-map presentation.
+- `frontend/src/services/mapEngine.ts`: Changed default MapLibre/Mapbox styles from dark basemaps to light basemaps.
+- `frontend/src/styles/global.css`: Replaced the dark teal glass theme with a lighter Nepal Editorial visual system, roomier spacing, map-first responsive layout, and updated component styling.
+
+### Reason
+
+The previous frontend felt congested, overly dark, and too much like a landing/dashboard hybrid. The requested direction was a cleaner Google Maps-like control room with a greeting, calmer colors, and the map as the first-viewport product surface.
+
+### Impact
+
+The app now opens on a large Kathmandu map with floating navigation, live status, AQI layer controls, and station detail context. Historical, forecast, provenance, wind, pipeline, and method content remain available below the map without changing backend APIs or data provenance behavior.
+
+### Verification performed
+
+- `npm --prefix frontend run build`: passed.
+- `npm --prefix frontend run lint`: passed.
+- `docker compose --profile core up -d --build`: passed.
+- `./scripts/verify_env.sh --profile core`: passed with elevated Docker access.
+- `curl -sS -o /dev/null -w '%{http_code}' http://localhost:3000`: passed (`200`).
+- `curl -sS -o /dev/null -w '%{http_code}' http://localhost:8000/health`: passed (`200`).
+
 ## Architecture Reset Session 1 Refinement - Worker Scheduling and Health Stabilization - 2026-05-25
 
 ### Files changed
