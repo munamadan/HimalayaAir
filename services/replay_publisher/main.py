@@ -29,6 +29,7 @@ class ReplayOptions:
     loop: bool
     dry_run: bool
     publish_mode: ReplayPublishMode
+    rebase_to_now: bool
 
 
 class ReplayConfigurationError(RuntimeError):
@@ -45,6 +46,11 @@ def parse_args() -> ReplayOptions:
     parser.add_argument("--speed", type=float, default=30.0, help="Replay speed multiplier against original timestamp gaps.")
     parser.add_argument("--loop", action="store_true", help="Loop the replay fixture continuously.")
     parser.add_argument("--dry-run", action="store_true", help="Validate and schedule messages without Kafka or DB writes.")
+    parser.add_argument(
+        "--rebase-to-now",
+        action="store_true",
+        help="Shift replay timestamps so the first selected fixture record is current while preserving original_timestamp.",
+    )
     parser.add_argument(
         "--publish-mode",
         choices=["kafka", "direct-db-fallback"],
@@ -68,6 +74,7 @@ def parse_args() -> ReplayOptions:
         loop=bool(args.loop),
         dry_run=bool(args.dry_run),
         publish_mode=args.publish_mode,
+        rebase_to_now=bool(args.rebase_to_now),
     )
 
 
@@ -134,6 +141,7 @@ def ingest_messages(
             speed=options.speed,
             loop=options.loop,
             publish_mode=options.publish_mode,
+            rebase_to_now=options.rebase_to_now,
         )
         return len(messages)
 
@@ -166,14 +174,14 @@ def publish_messages_to_kafka(
         speed=options.speed,
         loop=options.loop,
         publish_mode=options.publish_mode,
+        rebase_to_now=options.rebase_to_now,
         topic=topic,
     )
 
     iteration = 0
     while True:
         iteration += 1
-        for message in messages:
-            replay_message = message.model_copy(update={"ingested_at": utc_now()})
+        for replay_message in messages_for_replay_iteration(messages, rebase_to_now=options.rebase_to_now):
             produce_message(
                 producer,
                 topic=topic,
@@ -211,12 +219,13 @@ def ingest_messages_direct_db_fallback(options: ReplayOptions, messages: list[Ra
         speed=options.speed,
         loop=options.loop,
         publish_mode=options.publish_mode,
+        rebase_to_now=options.rebase_to_now,
     )
 
     iteration = 0
     while True:
         iteration += 1
-        run_messages = [message.model_copy(update={"ingested_at": utc_now()}) for message in messages]
+        run_messages = messages_for_replay_iteration(messages, rebase_to_now=options.rebase_to_now)
         result = processor.ingest_messages(
             run_messages,
             dry_run=False,
@@ -226,6 +235,7 @@ def ingest_messages_direct_db_fallback(options: ReplayOptions, messages: list[Ra
                 "loop": options.loop,
                 "iteration": iteration,
                 "publish_mode": options.publish_mode,
+                "rebase_to_now": options.rebase_to_now,
             },
         )
         published += result.records_written
@@ -240,6 +250,27 @@ def ingest_messages_direct_db_fallback(options: ReplayOptions, messages: list[Ra
         publish_mode=options.publish_mode,
     )
     return published
+
+
+def messages_for_replay_iteration(messages: list[RawAQReadingMessage], *, rebase_to_now: bool) -> list[RawAQReadingMessage]:
+    if not rebase_to_now:
+        return [message.model_copy(update={"ingested_at": utc_now()}) for message in messages]
+
+    base_timestamp = ensure_utc(messages[0].timestamp)
+    replay_started_at = utc_now()
+    rebased: list[RawAQReadingMessage] = []
+    for message in messages:
+        timestamp = ensure_utc(message.timestamp)
+        rebased.append(
+            message.model_copy(
+                update={
+                    "timestamp": replay_started_at + (timestamp - base_timestamp),
+                    "ingested_at": utc_now(),
+                    "original_timestamp": message.original_timestamp or timestamp,
+                }
+            )
+        )
+    return rebased
 
 
 def main() -> int:

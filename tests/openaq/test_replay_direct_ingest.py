@@ -7,7 +7,7 @@ from shared.kafka.messages import RawAQReadingMessage
 from shared.kafka.topics import KafkaTopics
 from shared.settings import KafkaSettings
 
-from services.replay_publisher.main import ReplayOptions, ingest_messages
+from services.replay_publisher.main import ReplayOptions, ingest_messages, messages_for_replay_iteration
 
 
 class _FakeProcessor:
@@ -35,6 +35,7 @@ def test_replay_publishes_to_kafka_by_default(monkeypatch) -> None:
         loop=False,
         dry_run=False,
         publish_mode="kafka",
+        rebase_to_now=False,
     )
     messages = [_replay_message()]
     settings = KafkaSettings(
@@ -68,6 +69,7 @@ def test_replay_ingests_via_direct_processor_when_fallback_mode_is_explicit(monk
         loop=False,
         dry_run=False,
         publish_mode="direct-db-fallback",
+        rebase_to_now=False,
     )
     messages = [_replay_message()]
 
@@ -76,6 +78,18 @@ def test_replay_ingests_via_direct_processor_when_fallback_mode_is_explicit(monk
     assert written == 1
     assert len(fake.calls) == 1
     assert fake.calls[0][1] is False
+
+
+def test_rebase_to_now_preserves_original_timestamp() -> None:
+    message = _replay_message()
+
+    rebased = messages_for_replay_iteration([message], rebase_to_now=True)
+
+    assert len(rebased) == 1
+    assert rebased[0].timestamp != message.timestamp
+    assert rebased[0].original_timestamp == message.timestamp
+    assert rebased[0].source == SourceName.DEMO_REPLAY.value
+    assert rebased[0].observation_type == ObservationType.REPLAY.value
 
 
 def _replay_message() -> RawAQReadingMessage:
