@@ -71,6 +71,7 @@ export interface MapInstance {
   remove(): void;
   removeLayer(id: string): void;
   removeSource(id: string): void;
+  setPaintProperty?(layerId: string, propertyName: string, value: unknown): void;
 }
 
 export interface MapLayerEvent {

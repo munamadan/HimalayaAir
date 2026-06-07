@@ -164,18 +164,18 @@ export function LiveMap({
       removeHeatmap(mapRef.current);
       return;
     }
-    upsertHeatmap(mapRef.current, image.url, image.coordinates);
+    upsertHeatmap(mapRef.current, image.url, image.coordinates, heatmapOpacity(interpolation));
   }, [interpolation, mapReady, showHeatmap]);
 
-  const heatmapStatus = interpolation?.insufficient_data
-    ? interpolation.message
-    : `${interpolation?.source ?? 'no source'} grid, ${interpolation?.station_count ?? 0} input stations`;
+  const modeledBaselineMap = interpolation?.coverage_mode === 'MODELED_BASELINE' && !interpolation.insufficient_data;
+  const heatmapStatus = heatmapStatusText(interpolation);
 
   return (
     <section className="map-panel" aria-label="Kathmandu Valley live AQI map">
       <div ref={containerRef} className="map-canvas" />
       <div className="map-panel__toolbar" aria-label="Map layer controls">
         <span className="layer-chip layer-chip--static">Stations</span>
+        {modeledBaselineMap && <span className="layer-chip layer-chip--modeled">Modeled baseline map</span>}
         <button type="button" className="button button--secondary" onClick={onToggleHeatmap}>
           {showHeatmap ? 'AQI heatmap on' : 'AQI heatmap off'}
         </button>
@@ -193,6 +193,7 @@ function upsertHeatmap(
   map: MapInstance,
   url: string,
   coordinates: [[number, number], [number, number], [number, number], [number, number]],
+  opacity: number,
 ): void {
   const source = map.getSource(HEATMAP_SOURCE_ID);
   if (source?.updateImage) {
@@ -212,11 +213,30 @@ function upsertHeatmap(
       source: HEATMAP_SOURCE_ID,
       type: 'raster',
       paint: {
-        'raster-opacity': 0.42,
+        'raster-opacity': opacity,
         'raster-fade-duration': 0,
       },
     }, map.getLayer(STATIONS_SELECTED_LAYER_ID) ? STATIONS_SELECTED_LAYER_ID : undefined);
+  } else {
+    map.setPaintProperty?.(HEATMAP_LAYER_ID, 'raster-opacity', opacity);
   }
+}
+
+function heatmapOpacity(interpolation: InterpolationResponse): number {
+  return interpolation.coverage_mode === 'MODELED_BASELINE' ? 0.55 : 0.42;
+}
+
+function heatmapStatusText(interpolation: InterpolationResponse | null): string {
+  if (!interpolation) {
+    return 'no interpolation grid loaded';
+  }
+  if (interpolation.insufficient_data) {
+    return interpolation.message;
+  }
+  if (interpolation.coverage_mode === 'MODELED_BASELINE') {
+    return `${interpolation.coverage_mode} ${interpolation.source} grid, ${interpolation.confidence} confidence`;
+  }
+  return `${interpolation.source} grid, ${interpolation.station_count} input stations`;
 }
 
 function removeHeatmap(map: MapInstance): void {

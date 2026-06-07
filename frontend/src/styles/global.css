@@ -240,6 +240,14 @@ main {
   font-weight: 800;
 }
 
+.layer-chip--modeled {
+  border-color: rgba(33, 94, 143, 0.28);
+  background: var(--civic-blue-soft);
+  color: var(--civic-blue);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
 .map-status-strip {
   position: absolute;
   top: 16px;

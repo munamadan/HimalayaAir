@@ -37,6 +37,7 @@ function App() {
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   const [forecastStationId, setForecastStationId] = useState<number | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [heatmapChangedByUser, setHeatmapChangedByUser] = useState(false);
   const [historicalPollutant, setHistoricalPollutant] = useState('pm25');
   const [showGreetingDialog, setShowGreetingDialog] = useState(() => shouldShowGreetingDialog());
   const [locationForecast, setLocationForecast] = useState<LocationForecastState>(() => readLocationForecastState());
@@ -105,6 +106,15 @@ function App() {
       setForecastStationId(sortedStations[0].id);
     }
   }, [forecastStationId, selectedStationId, sortedStations]);
+
+  useEffect(() => {
+    if (heatmapChangedByUser || !dashboard.interpolation || dashboard.interpolation.insufficient_data) {
+      return;
+    }
+    if (dashboard.interpolation.coverage_mode === 'MODELED_BASELINE') {
+      setShowHeatmap(true);
+    }
+  }, [dashboard.interpolation, heatmapChangedByUser]);
 
   useEffect(() => {
     if (!showGreetingDialog || locationForecast.status !== 'idle') {
@@ -224,7 +234,10 @@ function App() {
             selectedStationId={selectedStationId}
             showHeatmap={showHeatmap}
             onSelectStation={setSelectedStationId}
-            onToggleHeatmap={() => setShowHeatmap((current) => !current)}
+            onToggleHeatmap={() => {
+              setHeatmapChangedByUser(true);
+              setShowHeatmap((current) => !current);
+            }}
           />
           <div className="station-float">
             <StationPopup
