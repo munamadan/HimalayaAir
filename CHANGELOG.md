@@ -2,6 +2,41 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Post-Phase-14 Modeled Map Visibility and Replay Demo Reliability - 2026-06-07
+
+### Files changed
+
+- `frontend/src/App.tsx`: Auto-enables the AQI heatmap for a modeled baseline interpolation response until the user manually changes the heatmap toggle.
+- `frontend/src/components/LiveMap.tsx`, `frontend/src/services/mapEngine.ts`, and `frontend/src/styles/global.css`: Added a compact modeled baseline map chip, stronger modeled raster opacity, and map paint updates while keeping station layers above the raster.
+- `services/replay_publisher/main.py`: Made Kafka publishing to `raw-aq-readings` the default replay path, added explicit `--publish-mode direct-db-fallback`, and added `--rebase-to-now` for current defense-day replay without removing original timestamp provenance.
+- `tests/openaq/test_replay_direct_ingest.py`: Added focused tests for Kafka-first publishing, explicit direct DB fallback, and timestamp rebasing provenance.
+- `docker-compose.yml`: Added `SYNC_DATABASE_URL` to `replay-publisher` so explicit direct DB fallback can run inside Compose when needed.
+- `scripts/run_replay_demo.sh`: Added a single helper that starts core+stream profiles, creates Kafka topics, publishes replay fixture rows through Kafka, and verifies API/frontend-visible replay provenance.
+- `docs/demo-script.md` and `docs/final-defense-script.md`: Updated the defense runbook to use the Kafka-first helper and name direct DB ingestion as fallback only.
+- `docs/phase-summaries/POST-PHASE-14-modeled-map-replay-demo-summary.md`: Added this maintenance session summary and verification notes.
+
+### Reason
+
+Modeled baseline map output was too easy to miss when observed coverage was sparse, and the replay demo path had drifted back toward direct DB ingestion despite the approved Kafka/Spark defense architecture.
+
+### Impact
+
+Modeled fallback maps now show a visible raster by default with honest `MODELED_BASELINE` labeling. Replay fixture demos publish to Kafka by default, Spark can persist them when the stream profile is running, and direct DB replay is clearly marked as an emergency fallback. Replay rows remain labeled `demo_replay`, `replay`, `REPLAY_DEMO`, and `demo`.
+
+### Verification performed
+
+- `npm --prefix frontend run build`: passed.
+- `npm --prefix frontend run lint`: passed.
+- `python -m py_compile services/replay_publisher/main.py`: passed.
+- `python -m services.replay_publisher.main --dry-run --fixture fixtures/replay_sample.json`: passed.
+- `python -m services.replay_publisher.main --dry-run --fixture fixtures/replay_sample.json --rebase-to-now`: passed.
+- `pytest tests/openaq/test_replay_direct_ingest.py -q`: passed.
+- `pytest tests/openaq tests/unit -q`: passed.
+- `bash -n scripts/run_replay_demo.sh`: passed.
+- `docker compose --profile core --profile stream config --quiet`: passed.
+- `./scripts/run_replay_demo.sh --wait-seconds 90`: passed with elevated Docker access; Kafka published three replay messages, API reported `replay_active=true`, station replay rows were verified as `REPLAY_DEMO`, and frontend returned HTTP 200. Valley/interpolation coverage remained `MODELED_BASELINE` because modeled fallback data was also available.
+- `./scripts/run_replay_demo.sh --skip-compose-up --wait-seconds 90`: passed with elevated Docker access against the running core+stream stack.
+
 ## Post-Phase-14 Compact Map and Location Greeting - 2026-06-07
 
 ### Files changed
