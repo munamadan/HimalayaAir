@@ -23,6 +23,7 @@
   --radius-control: 999px;
   --font-display: "Space Grotesk", "Trebuchet MS", "Gill Sans", sans-serif;
   --font-mono: "Azeret Mono", "SFMono-Regular", Consolas, monospace;
+  --commandbar-offset: 104px;
 }
 
 * {
@@ -65,6 +66,7 @@ button {
 .app-shell {
   width: min(1560px, 100%);
   margin: 0 auto;
+  padding-top: var(--commandbar-offset);
 }
 
 main {
@@ -84,9 +86,9 @@ main {
 
 .map-stage {
   position: relative;
-  min-height: 100vh;
+  min-height: auto;
   padding: 14px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .map-commandbar,
@@ -110,15 +112,19 @@ main {
 }
 
 .map-commandbar {
-  position: absolute;
-  top: 26px;
-  right: 26px;
-  left: 26px;
-  z-index: 12;
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  left: 16px;
+  z-index: 60;
   display: grid;
   grid-template-columns: auto minmax(220px, 1fr) auto auto;
   gap: 14px;
   align-items: center;
+  width: min(1508px, calc(100% - 32px));
+  max-height: calc(100vh - 28px);
+  margin: 0 auto;
+  overflow: auto;
   padding: 12px;
   border-radius: var(--radius-card);
 }
@@ -236,11 +242,11 @@ main {
 
 .map-status-strip {
   position: absolute;
-  top: 106px;
-  left: 26px;
+  top: 16px;
+  left: 24px;
   z-index: 11;
   display: grid;
-  width: min(700px, calc(100% - 52px));
+  width: min(700px, calc(100% - 48px));
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   padding: 12px;
@@ -291,7 +297,7 @@ main {
 
 .map-panel {
   position: relative;
-  min-height: calc(100vh - 28px);
+  min-height: clamp(500px, 60vh, 720px);
   overflow: hidden;
   border: 1px solid rgba(49, 60, 69, 0.18);
   border-radius: 16px;
@@ -301,8 +307,8 @@ main {
 
 .map-canvas {
   width: 100%;
-  height: calc(100vh - 28px);
-  min-height: 680px;
+  height: clamp(500px, 60vh, 720px);
+  min-height: 500px;
   background:
     linear-gradient(45deg, rgba(33, 94, 143, 0.08) 25%, transparent 25%),
     linear-gradient(-45deg, rgba(45, 111, 89, 0.08) 25%, transparent 25%),
@@ -355,10 +361,10 @@ main {
 
 .station-float {
   position: absolute;
-  right: 26px;
-  top: 168px;
+  right: 24px;
+  top: 78px;
   z-index: 11;
-  width: min(390px, calc(100% - 52px));
+  width: min(390px, calc(100% - 48px));
 }
 
 .station-card,
@@ -599,6 +605,103 @@ main {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
   margin-top: 16px;
+}
+
+.forecast-controls {
+  grid-template-columns: minmax(220px, 340px) minmax(0, 1fr);
+  align-items: end;
+}
+
+.forecast-controls__basis {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(30, 41, 48, 0.46);
+}
+
+.greeting-dialog {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  background: var(--surface-strong);
+  box-shadow: 0 28px 80px rgba(30, 41, 48, 0.26);
+  padding: 22px;
+}
+
+.greeting-dialog__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.greeting-dialog__summary > div,
+.greeting-dialog__forecast {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  padding: 14px;
+}
+
+.greeting-dialog__summary strong {
+  display: block;
+  margin-top: 5px;
+  font-size: clamp(1.3rem, 4vw, 2.2rem);
+}
+
+.greeting-dialog__summary small {
+  color: var(--ink-soft);
+}
+
+.greeting-dialog__forecast {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.greeting-dialog__forecast h3 {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.greeting-dialog__forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.greeting-dialog__forecast-grid div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-strong);
+  padding: 12px;
+}
+
+.greeting-dialog__forecast-grid span,
+.greeting-dialog__forecast-grid strong {
+  display: block;
+}
+
+.greeting-dialog__forecast-grid span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.greeting-dialog__forecast-grid strong {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
 }
 
 .historical-controls label,
@@ -881,6 +984,10 @@ main {
 }
 
 @media (max-width: 1180px) {
+  :root {
+    --commandbar-offset: 152px;
+  }
+
   .map-commandbar {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -895,7 +1002,7 @@ main {
   }
 
   .map-status-strip {
-    top: 158px;
+    top: 16px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -924,6 +1031,10 @@ main {
 }
 
 @media (max-width: 760px) {
+  :root {
+    --commandbar-offset: 244px;
+  }
+
   main {
     gap: 16px;
   }
@@ -935,16 +1046,15 @@ main {
   }
 
   .map-panel {
-    min-height: 640px;
+    min-height: 460px;
     border-radius: 12px;
   }
 
   .map-canvas {
-    height: 640px;
-    min-height: 640px;
+    height: 460px;
+    min-height: 460px;
   }
 
-  .map-commandbar,
   .map-status-strip,
   .station-float {
     position: relative;
@@ -954,8 +1064,14 @@ main {
   }
 
   .map-commandbar {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    left: 8px;
     grid-template-columns: 1fr;
-    margin-bottom: 8px;
+    width: calc(100% - 16px);
+    max-height: 220px;
+    margin: 0;
   }
 
   .brand small {
@@ -1017,6 +1133,21 @@ main {
     grid-template-columns: 1fr;
   }
 
+  .dialog-backdrop {
+    align-items: start;
+    padding: 12px;
+  }
+
+  .greeting-dialog {
+    max-height: calc(100vh - 24px);
+    padding: 18px;
+  }
+
+  .greeting-dialog__summary,
+  .greeting-dialog__forecast-grid {
+    grid-template-columns: 1fr;
+  }
+
   .metrics-grid,
   .lower-grid,
   .historical-card,
@@ -1041,6 +1172,10 @@ main {
 }
 
 @media (max-width: 420px) {
+  :root {
+    --commandbar-offset: 292px;
+  }
+
   .map-status-strip {
     grid-template-columns: 1fr;
   }

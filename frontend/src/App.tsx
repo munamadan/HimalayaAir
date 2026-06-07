@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ErrorPanel } from './components/ErrorPanel';
 import { ForecastPanel } from './components/ForecastPanel';
+import { GreetingSummaryDialog } from './components/GreetingSummaryDialog';
 import { HistoricalExplorer } from './components/HistoricalExplorer';
 import { LiveMap } from './components/LiveMap';
 import { LoadingState } from './components/LoadingState';
@@ -16,13 +17,29 @@ import { useLiveFeed } from './hooks/useLiveFeed';
 import { useStationCurrent } from './hooks/useStationCurrent';
 import { formatCoverageMode, sortStationsForDisplay, stationHasCurrentData } from './lib/aqi';
 import { formatTimestamp } from './lib/time';
-import type { StationsResponse, WebSocketEvent } from './types/api';
+import { getHealthAdvisory } from './services/api';
+import type { HealthAdvisoryResponse, NearestStation, StationsResponse, WebSocketEvent } from './types/api';
+
+const GREETING_DIALOG_SESSION_KEY = 'himalayaair.greeting.dismissed.v1';
+const LOCATION_FORECAST_SESSION_KEY = 'himalayaair.locationForecast.v1';
+
+type LocationForecastStatus = 'idle' | 'locating' | 'nearest' | 'manual' | 'denied' | 'unavailable' | 'error';
+
+interface LocationForecastState {
+  status: LocationForecastStatus;
+  message: string;
+  nearestStation: NearestStation | null;
+  advisory: HealthAdvisoryResponse | null;
+}
 
 function App() {
   const dashboard = useDashboardData();
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
+  const [forecastStationId, setForecastStationId] = useState<number | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [historicalPollutant, setHistoricalPollutant] = useState('pm25');
+  const [showGreetingDialog, setShowGreetingDialog] = useState(() => shouldShowGreetingDialog());
+  const [locationForecast, setLocationForecast] = useState<LocationForecastState>(() => readLocationForecastState());
 
   const handleLiveEvent = useCallback(
     (event: WebSocketEvent) => {
@@ -43,6 +60,39 @@ function App() {
     [dashboard.stations?.stations],
   );
 
+  const setLocationForecastState = useCallback((state: LocationForecastState) => {
+    setLocationForecast(state);
+    writeSessionValue(LOCATION_FORECAST_SESSION_KEY, JSON.stringify(state));
+  }, []);
+
+  const loadLocationAdvisory = useCallback(async (lat: number, lon: number) => {
+    try {
+      const advisory = await getHealthAdvisory(lat, lon);
+      if (advisory.nearest_station) {
+        const state: LocationForecastState = {
+          status: 'nearest',
+          message: `Forecast is based on nearest station ${advisory.nearest_station.name}.`,
+          nearestStation: advisory.nearest_station,
+          advisory,
+        };
+        setSelectedStationId(advisory.nearest_station.id);
+        setForecastStationId(advisory.nearest_station.id);
+        setLocationForecastState(state);
+        return;
+      }
+
+      setLocationForecastState({
+        status: 'unavailable',
+        message: 'No nearest station was returned. Forecast uses the default Kathmandu station.',
+        nearestStation: null,
+        advisory,
+      });
+    } catch {
+      const state = fallbackLocationForecast('Location advisory failed. Forecast uses the default Kathmandu station.', 'error');
+      setLocationForecastState(state);
+    }
+  }, [setLocationForecastState]);
+
   useEffect(() => {
     if (sortedStations.length === 0) {
       return;
@@ -51,7 +101,46 @@ function App() {
     if (!selectedStillExists) {
       setSelectedStationId(sortedStations[0].id);
     }
-  }, [selectedStationId, sortedStations]);
+    if (forecastStationId === null) {
+      setForecastStationId(sortedStations[0].id);
+    }
+  }, [forecastStationId, selectedStationId, sortedStations]);
+
+  useEffect(() => {
+    if (!showGreetingDialog || locationForecast.status !== 'idle') {
+      return;
+    }
+
+    if (!('geolocation' in navigator)) {
+      const state = fallbackLocationForecast('Browser location is unavailable. Forecast uses the default Kathmandu station.');
+      setLocationForecastState(state);
+      return;
+    }
+
+    setLocationForecastState({
+      status: 'locating',
+      message: 'Waiting for browser location to choose the nearest forecast station.',
+      nearestStation: null,
+      advisory: null,
+    });
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        void loadLocationAdvisory(position.coords.latitude, position.coords.longitude);
+      },
+      (error) => {
+        const denied = error.code === error.PERMISSION_DENIED;
+        const state = fallbackLocationForecast(
+          denied
+            ? 'Location permission was denied. Forecast uses the default Kathmandu station.'
+            : 'Browser location could not be resolved. Forecast uses the default Kathmandu station.',
+          denied ? 'denied' : 'unavailable',
+        );
+        setLocationForecastState(state);
+      },
+      { enableHighAccuracy: false, maximumAge: 10 * 60 * 1000, timeout: 8000 },
+    );
+  }, [loadLocationAdvisory, locationForecast.status, setLocationForecastState, showGreetingDialog]);
 
   const selectedStation = sortedStations.find((station) => station.id === selectedStationId) ?? null;
   const selectedCurrent = useStationCurrent(selectedStationId);
@@ -65,6 +154,23 @@ function App() {
   const freshnessText = coverage?.fresh_station_count || coverage?.recent_station_count
     ? `${coverage?.fresh_station_count ?? 0} fresh / ${coverage?.recent_station_count ?? 0} recent`
     : 'station coverage sparse';
+  const selectedOrNearestStationName = locationForecast.nearestStation?.name ?? selectedStation?.name ?? null;
+  const forecastBasisMessage = locationForecast.message || 'Forecast uses the default Kathmandu station.';
+
+  const handleForecastStationChange = useCallback((stationId: number) => {
+    const station = sortedStations.find((candidate) => candidate.id === stationId);
+    setForecastStationId(stationId);
+    setLocationForecastState({
+      ...locationForecast,
+      status: 'manual',
+      message: `Forecast station changed manually${station ? ` to ${station.name}` : ''}.`,
+    });
+  }, [locationForecast, setLocationForecastState, sortedStations]);
+
+  const dismissGreetingDialog = useCallback(() => {
+    writeSessionValue(GREETING_DIALOG_SESSION_KEY, 'true');
+    setShowGreetingDialog(false);
+  }, []);
 
   return (
     <div className="app-shell">
@@ -162,7 +268,13 @@ function App() {
           onPollutantChange={setHistoricalPollutant}
         />
 
-        <ForecastPanel stations={sortedStations} pollutant={historicalPollutant} />
+        <ForecastPanel
+          stations={sortedStations}
+          pollutant={historicalPollutant}
+          stationId={forecastStationId}
+          stationBasisMessage={forecastBasisMessage}
+          onStationChange={handleForecastStationChange}
+        />
 
         <section id="pipeline" className="lower-grid lower-grid--narrow">
           <PipelineHealth health={dashboard.pipelineHealth} />
@@ -178,6 +290,24 @@ function App() {
           </section>
         </section>
       </main>
+      <GreetingSummaryDialog
+        open={showGreetingDialog}
+        greeting={greeting}
+        valleyAqi={locationForecast.advisory?.aqi ?? displayAqi}
+        coverageMode={locationForecast.advisory?.coverage_mode ?? coverage?.coverage_mode}
+        freshStationCount={locationForecast.advisory?.fresh_station_count ?? coverage?.fresh_station_count ?? null}
+        recentStationCount={locationForecast.advisory?.recent_station_count ?? coverage?.recent_station_count ?? null}
+        source={dashboard.valley?.source ?? selectedStation?.source ?? null}
+        observationType={selectedStation?.observation_type ?? null}
+        lastUpdated={lastUpdated}
+        selectedStationName={selectedOrNearestStationName}
+        nearestStation={locationForecast.nearestStation}
+        forecastStationId={forecastStationId}
+        pollutant="pm25"
+        forecastBasisMessage={forecastBasisMessage}
+        locationStatus={locationForecast.message}
+        onDismiss={dismissGreetingDialog}
+      />
     </div>
   );
 }
@@ -208,4 +338,65 @@ function getKathmanduGreeting(): string {
     return 'Good afternoon';
   }
   return 'Good evening';
+}
+
+function shouldShowGreetingDialog(): boolean {
+  return readSessionValue(GREETING_DIALOG_SESSION_KEY) !== 'true';
+}
+
+function readLocationForecastState(): LocationForecastState {
+  const stored = readSessionValue(LOCATION_FORECAST_SESSION_KEY);
+  if (!stored) {
+    return fallbackLocationForecast('Waiting for browser location to choose a forecast station.', 'idle');
+  }
+
+  try {
+    const parsed = JSON.parse(stored) as Partial<LocationForecastState>;
+    if (!parsed.status || !isLocationForecastStatus(parsed.status)) {
+      return fallbackLocationForecast('Forecast uses the default Kathmandu station.');
+    }
+    if (parsed.status === 'locating') {
+      return fallbackLocationForecast('Location lookup did not complete. Forecast uses the default Kathmandu station.');
+    }
+    return {
+      status: parsed.status,
+      message: parsed.message ?? 'Forecast uses the default Kathmandu station.',
+      nearestStation: parsed.nearestStation ?? null,
+      advisory: parsed.advisory ?? null,
+    };
+  } catch {
+    return fallbackLocationForecast('Forecast uses the default Kathmandu station.');
+  }
+}
+
+function fallbackLocationForecast(
+  message: string,
+  status: LocationForecastStatus = 'unavailable',
+): LocationForecastState {
+  return {
+    status,
+    message,
+    nearestStation: null,
+    advisory: null,
+  };
+}
+
+function isLocationForecastStatus(value: string): value is LocationForecastStatus {
+  return ['idle', 'locating', 'nearest', 'manual', 'denied', 'unavailable', 'error'].includes(value);
+}
+
+function readSessionValue(key: string): string | null {
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionValue(key: string, value: string): void {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    return;
+  }
 }

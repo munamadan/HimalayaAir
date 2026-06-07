@@ -16,6 +16,7 @@ import {
 import type { InterpolationResponse, StationSummary } from '../types/api';
 
 const KATHMANDU_CENTER: [number, number] = [85.324, 27.7172];
+const KATHMANDU_BOUNDS: [[number, number], [number, number]] = [[85.2, 27.55], [85.5, 27.8]];
 const HEATMAP_SOURCE_ID = 'himalayaair-current-grid';
 const HEATMAP_LAYER_ID = 'himalayaair-current-grid-layer';
 const STATIONS_SOURCE_ID = 'himalayaair-stations';
@@ -93,6 +94,8 @@ export function LiveMap({
           style: engine.styleUrl,
           center: KATHMANDU_CENTER,
           zoom: 11.35,
+          minZoom: 10.2,
+          maxBounds: KATHMANDU_BOUNDS,
           pitch: 0,
           bearing: 0,
           attributionControl: false,

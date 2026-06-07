@@ -10,16 +10,19 @@ import type { ForecastResponse, StationSummary } from '../types/api';
 interface ForecastPanelProps {
   stations: StationSummary[];
   pollutant: string;
+  stationId: number | null;
+  stationBasisMessage: string;
+  onStationChange: (stationId: number) => void;
 }
 
-export function ForecastPanel({ stations, pollutant }: ForecastPanelProps) {
-  const [stationId, setStationId] = useState<number>(stations[0]?.id ?? 0);
+export function ForecastPanel({ stations, pollutant, stationId, stationBasisMessage, onStationChange }: ForecastPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forecast, setForecast] = useState<ForecastResponse | null>(null);
+  const selectedStationId = stationId ?? stations[0]?.id ?? 0;
 
   useEffect(() => {
-    if (stationId === 0) {
+    if (selectedStationId === 0) {
       return;
     }
     let cancelled = false;
@@ -27,7 +30,7 @@ export function ForecastPanel({ stations, pollutant }: ForecastPanelProps) {
       setLoading(true);
       setError(null);
       try {
-        const response = await getForecast(stationId, pollutant);
+        const response = await getForecast(selectedStationId, pollutant);
         if (!cancelled) {
           setForecast(response);
         }
@@ -50,7 +53,7 @@ export function ForecastPanel({ stations, pollutant }: ForecastPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [pollutant, stationId]);
+  }, [pollutant, selectedStationId]);
 
   const chartRows = useMemo(
     () =>
@@ -77,7 +80,7 @@ export function ForecastPanel({ stations, pollutant }: ForecastPanelProps) {
       <div className="forecast-controls">
         <label>
           Station
-          <select value={stationId} onChange={(event) => setStationId(Number(event.target.value))}>
+          <select value={selectedStationId} onChange={(event) => onStationChange(Number(event.target.value))}>
             {stations.map((station) => (
               <option key={station.id} value={station.id}>
                 {station.name}
@@ -85,6 +88,7 @@ export function ForecastPanel({ stations, pollutant }: ForecastPanelProps) {
             ))}
           </select>
         </label>
+        <p className="forecast-controls__basis">{stationBasisMessage}</p>
       </div>
 
       {loading && <p className="muted">Loading forecast…</p>}

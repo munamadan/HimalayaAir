@@ -1,5 +1,6 @@
 import type {
   ForecastResponse,
+  HealthAdvisoryResponse,
   InterpolationResponse,
   PipelineHealthResponse,
   StationCurrentResponse,
@@ -91,6 +92,17 @@ export function getValleyHistory(
 export function getForecast(stationId: number, pollutant: string): Promise<ForecastResponse> {
   const search = new URLSearchParams({ pollutant });
   return apiFetch<ForecastResponse>(`/api/forecasts/${stationId}?${search.toString()}`);
+}
+
+export function getHealthAdvisory(lat?: number, lon?: number): Promise<HealthAdvisoryResponse> {
+  const search = new URLSearchParams();
+  if (lat !== undefined && lon !== undefined) {
+    search.set('lat', String(lat));
+    search.set('lon', String(lon));
+  }
+  const query = search.toString();
+  const suffix = query ? `?${query}` : '';
+  return apiFetch<HealthAdvisoryResponse>(`/api/health-advisory${suffix}`);
 }
 
 export function getWindRose(hours = 24, bins = 16): Promise<WindRoseResponse> {

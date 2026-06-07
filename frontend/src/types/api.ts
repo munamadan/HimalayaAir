@@ -177,6 +177,22 @@ export interface WindRoseResponse {
   total_samples: number;
 }
 
+export interface NearestStation {
+  id: number;
+  name: string;
+  lat: number;
+  lon: number;
+  distance_km: number;
+  current_aqi: number | null;
+}
+
+export interface HealthAdvisoryResponse extends CoverageMetadata {
+  aqi: number | null;
+  category: string | null;
+  recommendation: string;
+  nearest_station: NearestStation | null;
+}
+
 export interface ForecastPoint {
   target_timestamp: string;
   horizon_hours: number;

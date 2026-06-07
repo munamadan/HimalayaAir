@@ -17,6 +17,8 @@ export interface MapCreateOptions {
   style: string;
   center: [number, number];
   zoom: number;
+  maxBounds?: [[number, number], [number, number]];
+  minZoom?: number;
   pitch?: number;
   bearing?: number;
   attributionControl?: boolean;

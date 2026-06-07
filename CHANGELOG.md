@@ -2,6 +2,39 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Post-Phase-14 Compact Map and Location Greeting - 2026-06-07
+
+### Files changed
+
+- `frontend/src/App.tsx`: Added session-scoped first-open greeting state, browser geolocation lookup, health-advisory integration, nearest/default forecast station selection, and controlled forecast station state.
+- `frontend/src/components/GreetingSummaryDialog.tsx`: Added first-open summary dialog with current AQI/provenance fields and a 72-hour PM2.5 forecast summary for the selected forecast station.
+- `frontend/src/components/ForecastPanel.tsx`: Changed the forecast panel to accept a controlled station id from `App` while still allowing manual station changes.
+- `frontend/src/components/LiveMap.tsx` and `frontend/src/services/mapEngine.ts`: Added Kathmandu Valley map bounds and minimum zoom support through the local map adapter.
+- `frontend/src/services/api.ts` and `frontend/src/types/api.ts`: Added typed frontend support for `GET /api/health-advisory`.
+- `frontend/src/styles/global.css`: Converted the command bar into a persistent fixed widget, compacted the map section, added responsive mobile offsets, and styled the greeting dialog.
+- `docs/phase-summaries/POST-PHASE-14-compact-map-location-greeting-summary.md`: Added this maintenance session summary and verification notes.
+
+### Reason
+
+The first screen needed to shift from a full-height map hero to a compact Kathmandu Valley map while keeping the greeting/navigation controls available during scrolling. The forecast experience also needed to use the user's browser location when permitted, with honest fallback to the default Kathmandu station.
+
+### Impact
+
+The dashboard now opens with a compact bounded Kathmandu Valley map, a fixed greeting/menu widget, and a first-open dialog that summarizes current AQI/provenance and PM2.5 forecast context. Browser location permission selects the nearest station through the existing health-advisory API; denial or failure is surfaced as default-station fallback text. No backend API, schema, ingestion, or forecast model behavior was changed.
+
+### Verification performed
+
+- `npm --prefix frontend run build`: passed.
+- `npm --prefix frontend run lint`: passed.
+- `npm --prefix frontend run test -- --run`: passed.
+- `docker compose --profile core up -d --build`: passed with elevated Docker access.
+- `./scripts/verify_env.sh --profile core`: passed with elevated Docker/local socket access.
+- `docker compose ps`: passed with `api`, `frontend`, `timescaledb`, and `worker` healthy.
+- `curl -sS -o /dev/null -w '%{http_code}' http://localhost:3000`: passed (`200`).
+- `curl -sS -o /dev/null -w '%{http_code}' http://localhost:8000/health`: passed (`200`).
+- `curl -sS http://localhost:3000 | rg -n "HimalayaAir|Welcome to nginx"`: passed with HimalayaAir markers and no default Nginx page.
+- `curl -sS 'http://localhost:8000/api/health-advisory?lat=27.71&lon=85.32'`: passed and returned health-advisory JSON with coverage metadata and a nearest station.
+
 ## Post-Phase-14 Fire Layer Removal - 2026-06-04
 
 ### Files changed
