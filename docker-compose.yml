@@ -476,6 +476,7 @@ services:
       SERVICE_NAME: replay-publisher
       LOG_FORMAT: ${LOG_FORMAT:-json}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      SYNC_DATABASE_URL: ${SYNC_DATABASE_URL:-postgresql://himalayaair:himalayaair@timescaledb:5432/himalayaair}
     command:
       - python
       - -m
