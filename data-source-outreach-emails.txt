@@ -1,0 +1,201 @@
+HIMALAYAAIR DATA SOURCE OUTREACH EMAILS
+
+Name: Dipan Kharel
+College: St. Xavier's College, Maitighar, Kathmandu
+College Email: 022bscit012@sxc.edu.np
+
+
+============================================================
+1. OPENAQ
+============================================================
+
+Send to: info@openaq.org
+Official contact page: https://openaq.org/contact/
+
+Subject: Request for Kathmandu Valley air-quality data guidance for academic project
+
+Hello OpenAQ Team,
+
+My name is Dipan Kharel, and I am a BSc CSIT student at St. Xavier's College, Maitighar, Kathmandu.
+
+I am building HimalayaAir, a final-year academic project focused on Kathmandu Valley air-quality intelligence. The platform uses Kafka, Spark, TimescaleDB/PostGIS, FastAPI, and React to ingest, process, store, and visualize provenance-aware air-quality data.
+
+HimalayaAir already uses OpenAQ as an observed air-quality source. I wanted to ask whether OpenAQ has additional Kathmandu Valley station metadata, historical PM2.5/PM10 access, or guidance on correctly using OpenAQ data for an academic project.
+
+I am especially interested in understanding whether there are additional Kathmandu Valley observed stations available through OpenAQ, how historical readings should be accessed responsibly, and whether there are recommended attribution requirements for academic use.
+
+The project will clearly attribute OpenAQ and all relevant sources, and every reading will be labeled by provenance, such as observed, modeled, replay, or synthetic. The data would be used only for academic demonstration, research, and project evaluation.
+
+I would be happy to share more details about the project architecture or intended use if needed.
+
+Thank you for your time.
+
+Sincerely,
+
+Dipan Kharel
+BSc CSIT Student
+St. Xavier's College, Maitighar, Kathmandu
+022bscit012@sxc.edu.np
+
+
+============================================================
+2. AUSTRALIAN EMBASSY IN NEPAL
+============================================================
+
+Official contact page: https://nepal.embassy.gov.au/kmdu/contact-us.html
+Phone listed on official page: +977 1 437 1678
+
+Subject: Request for Kathmandu air-quality station data access for academic project
+
+Hello Australian Embassy Team,
+
+My name is Dipan Kharel, and I am a BSc CSIT student at St. Xavier's College, Maitighar, Kathmandu.
+
+I am building HimalayaAir, a final-year academic project focused on Kathmandu Valley air-quality intelligence. The platform uses Kafka, Spark, TimescaleDB/PostGIS, FastAPI, and React to ingest, process, store, and visualize provenance-aware air-quality data.
+
+I noticed that "Australian Embassy in Nepal" appears as an air-quality station on IQAir for Kathmandu Valley. I wanted to ask whether the Embassy would be able to provide access to historical and near-real-time PM2.5/PM10 readings from this station for academic and non-commercial use.
+
+If direct access is not possible, could you please advise whether the data should be accessed through IQAir, an official API, or another approved channel?
+
+The project will clearly attribute all data sources and label every reading by provenance, such as observed, modeled, replay, or synthetic. The data would be used only for academic demonstration, research, and project evaluation.
+
+I would be happy to share more details about the project architecture or intended use if needed.
+
+Thank you for your time.
+
+Sincerely,
+
+Dipan Kharel
+BSc CSIT Student
+St. Xavier's College, Maitighar, Kathmandu
+022bscit012@sxc.edu.np
+
+
+============================================================
+3. INTERNATIONAL FRENCH SCHOOL OF KATHMANDU
+============================================================
+
+Official website: https://www.efiktm.com/
+
+Subject: Request for Kathmandu air-quality station data access for academic project
+
+Hello International French School of Kathmandu Team,
+
+My name is Dipan Kharel, and I am a BSc CSIT student at St. Xavier's College, Maitighar, Kathmandu.
+
+I am building HimalayaAir, a final-year academic project focused on Kathmandu Valley air-quality intelligence. The platform uses Kafka, Spark, TimescaleDB/PostGIS, FastAPI, and React to ingest, process, store, and visualize provenance-aware air-quality data.
+
+I noticed that "International French school Lazimpat Road" appears as an air-quality station on IQAir for Kathmandu Valley. I wanted to ask whether the school would be able to provide access to historical and near-real-time PM2.5/PM10 readings from this station for academic and non-commercial use.
+
+If direct access is not possible, could you please advise whether the data should be accessed through IQAir, an official API, or another approved channel?
+
+The project will clearly attribute all data sources and label every reading by provenance, such as observed, modeled, replay, or synthetic. The data would be used only for academic demonstration, research, and project evaluation.
+
+I would be happy to share more details about the project architecture or intended use if needed.
+
+Thank you for your time.
+
+Sincerely,
+
+Dipan Kharel
+BSc CSIT Student
+St. Xavier's College, Maitighar, Kathmandu
+022bscit012@sxc.edu.np
+
+
+============================================================
+4. GD LABS
+============================================================
+
+Note: IQAir lists multiple Kathmandu Valley stations with GD Labs in the station name, including Golfutar, Chhetrapati, Kupondole, Balaju, Lamtangil, Shantichowk, Tankeshwor, Tokha, Tripureshwor, Mahankal, Ranibari, and Mid Baneshwor. A verified public email was not found during lookup, so use an official GD Labs website, LinkedIn, Facebook, or ask IQAir to forward the request.
+
+Subject: Request for Kathmandu Valley air-quality data access for academic project
+
+Hello GD Labs Team, My name is Dipan Kharel, and I am a BSc CSIT student at St. Xavier's College, Maitighar, Kathmandu.
+
+I am building HimalayaAir, a final-year academic project focused on Kathmandu Valley air-quality intelligence. The platform uses Kafka, Spark, TimescaleDB/PostGIS, FastAPI, and React to ingest, process, store, and visualize provenance-aware air-quality data.
+
+I noticed that multiple Kathmandu Valley air-quality stations on IQAir appear to be associated with GD Labs, including stations such as Golfutar, Chhetrapati, Kupondole, Balaju, Lamtangil, Shantichowk, Tankeshwor, Tokha, Tripureshwor, Mahankal, Ranibari, and Mid Baneshwor.
+
+I wanted to ask whether GD Labs would be able to provide access to historical and near-real-time PM2.5/PM10 readings from these stations for academic and non-commercial use.
+
+If direct access is not possible, could you please advise whether the data should be accessed through IQAir, an official API, or another approved channel?
+
+The project will clearly attribute all data sources and label every reading by provenance, such as observed, modeled, replay, or synthetic. The data would be used only for academic demonstration, research, and project evaluation.
+
+I would be happy to share more details about the project architecture or intended use if needed.
+
+Thank you for your time.
+
+Sincerely,
+
+Dipan Kharel
+BSc CSIT Student
+St. Xavier's College, Maitighar, Kathmandu
+022bscit012@sxc.edu.np
+
+
+============================================================
+5. AE RESEARCH
+============================================================
+
+Note: IQAir lists AE RESEARCH as a Kathmandu Valley air-quality station contributor. A verified public email was not found during lookup, so use an official website, LinkedIn, Facebook, or ask IQAir to forward the request.
+
+Subject: Request for Kathmandu air-quality data access for academic project
+
+Hello AE RESEARCH Team,
+
+My name is Dipan Kharel, and I am a BSc CSIT student at St. Xavier's College, Maitighar, Kathmandu.
+
+I am building HimalayaAir, a final-year academic project focused on Kathmandu Valley air-quality intelligence. The platform uses Kafka, Spark, TimescaleDB/PostGIS, FastAPI, and React to ingest, process, store, and visualize provenance-aware air-quality data.
+
+I noticed that AE RESEARCH appears as an air-quality station contributor for Kathmandu Valley on IQAir. I wanted to ask whether AE RESEARCH would be able to provide access to historical and near-real-time PM2.5/PM10 readings for academic and non-commercial use.
+
+If direct access is not possible, could you please advise whether the data should be accessed through IQAir, an official API, or another approved channel?
+
+The project will clearly attribute all data sources and label every reading by provenance, such as observed, modeled, replay, or synthetic. The data would be used only for academic demonstration, research, and project evaluation.
+
+I would be happy to share more details about the project architecture or intended use if needed.
+
+Thank you for your time.
+
+Sincerely,
+
+Dipan Kharel
+BSc CSIT Student
+St. Xavier's College, Maitighar, Kathmandu
+022bscit012@sxc.edu.np
+
+
+============================================================
+6. IQAIR FOLLOW-UP
+============================================================
+
+Official API/contact page: https://www.iqair.com/air-quality-monitors/api
+
+Subject: Follow-up request for Kathmandu Valley station-level AQ data access
+
+Hello IQAir Team,
+
+My name is Dipan Kharel, and I am a BSc CSIT student at St. Xavier's College, Maitighar, Kathmandu.
+
+I am building HimalayaAir, a final-year academic project focused on Kathmandu Valley air-quality intelligence. The platform uses Kafka, Spark, TimescaleDB/PostGIS, FastAPI, and React to ingest, process, store, and visualize provenance-aware air-quality data.
+
+I noticed that IQAir lists multiple Kathmandu Valley air-quality stations from different contributors. I wanted to ask whether IQAir provides academic or non-commercial access to station-level Kathmandu Valley data, including historical and near-real-time PM2.5/PM10 readings.
+
+Could you please advise whether the Community, Startup, Enterprise, or any academic access option would allow station-level data and historical readings for Kathmandu Valley?
+
+If IQAir cannot provide direct academic access, would it be possible to forward my request to Kathmandu Valley station contributors such as GD Labs, AE RESEARCH, International French School of Kathmandu, and Australian Embassy in Nepal?
+
+The project will clearly attribute IQAir and all relevant sources, and every reading will be labeled by provenance, such as observed, modeled, replay, or synthetic. The data would be used only for academic demonstration, research, and project evaluation.
+
+I would be happy to share more details about the project architecture or intended use if needed.
+
+Thank you for your time.
+
+Sincerely,
+
+Dipan Kharel
+BSc CSIT Student
+St. Xavier's College, Maitighar, Kathmandu
+022bscit012@sxc.edu.np
