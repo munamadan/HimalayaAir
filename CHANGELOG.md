@@ -32,6 +32,106 @@ Normal forecast arbitration remains SARIMAX first, then modeled AQ bias, then pe
 - `FORECAST_FORCE_MODEL=ml_placeholder FORECAST_HORIZON_HOURS=48 timeout 20s python -m services.forecasting.run_once --dry-run`: passed; two stations selected the labeled placeholder and the dry run completed successfully.
 - `git diff --check`: passed.
 
+## Post-Phase-14 Welcoming Air-Quality Map UI - 2026-07-19
+
+### Files changed
+
+- `frontend/package.json` and `frontend/package-lock.json`: Added `lucide-react` for familiar, accessible product controls.
+- `frontend/src/App.tsx`: Reworked the first viewport into a welcoming AQI status panel over a full-screen Kathmandu Valley map, added station selection, clearer live/update context, health guidance, and icon-led Now/Forecast/History navigation.
+- `frontend/src/components/LiveMap.tsx`: Replaced the text layer menu with compact AQI, wind, station, and reset-map icon controls; kept station selection and provenance-aware map behavior; added a friendly basemap connectivity fallback.
+- `frontend/src/components/TimelineSlider.tsx`: Added Lucide play/pause controls and fixed the conditional React hook lint failure.
+- `frontend/src/components/StationPopup.tsx` and `frontend/src/components/MetricCard.tsx`: Added compact icon actions and a more scannable selected-place/current-summary presentation.
+- `frontend/src/components/ForecastPanel.tsx` and `frontend/src/components/Pm25Chart.tsx`: Aligned chart tooltip styling with the shared visual system.
+- `frontend/src/styles/global.css`: Replaced accumulated dashboard overrides with one responsive green, sky, coral, and AQI-color product system covering the map shell, station sheet, timeline, tabs, details panels, forecast, history, loading, errors, and mobile layouts.
+- `docs/phase-summaries/POST-PHASE-14-welcoming-map-ui-summary.md`: Added the maintenance-session implementation and verification summary.
+
+### Reason
+
+The public frontend needed to feel more approachable and product-like, using the immediate AQI hierarchy of air-quality products and the map-led interaction model of modern weather tools without copying another product's branding.
+
+### Impact
+
+HimalayaAir now opens with a clear AQI reading, health guidance, station jump control, live/update context, and direct forecast action over the map. Map layers use familiar icon controls, selected-station details remain compact, and the lower experience is organized around current conditions, forecast planning, and historical exploration. Existing provenance modes, API contracts, ingestion, forecasting, and replay behavior are unchanged.
+
+### Verification performed
+
+- `npm --prefix frontend run build`: passed; Vite reported the existing large-chunk warning.
+- `npm --prefix frontend run lint`: passed.
+- `npm --prefix frontend run test -- --run`: passed, 4 tests.
+- Playwright production-origin audit at `1440x1000` and `390x844`: passed with no viewport overflow or checked control overlaps.
+- Playwright interaction checks: Forecast tab visible, 53 station options loaded, and the selected-station sheet opened.
+- `docker compose --profile core up -d --build frontend`: passed; frontend and API containers were recreated healthy.
+- `./scripts/verify_env.sh --profile core`: passed after the frontend healthcheck settled.
+- `curl http://localhost:3000` and `curl http://localhost:8000/health`: passed with HTTP 200.
+
+## Wind Particle Animation — 2026-07-18
+
+### Files changed
+
+- `services/api/wind_grid.py` (new): Fetches a 6×8 wind vector grid from Open-Meteo for the Kathmandu Valley, converts speed/direction to u/v components, caches for 15 minutes.
+- `services/api/models.py`: Added `WindGridPoint` and `WindGridResponse` Pydantic models.
+- `services/api/main.py`: Added `GET /api/weather/wind-grid` endpoint.
+- `frontend/src/lib/windParticles.ts` (new): Canvas 2D particle flow renderer with bilinear interpolation over the wind vector grid, ~800 particles, trailing fade effect.
+- `frontend/src/types/api.ts`: Added `WindGridPoint` and `WindGridResponse` interfaces.
+- `frontend/src/services/api.ts`: Added `getWindGrid()` API client function.
+- `frontend/src/services/mapEngine.ts`: Extended `MapInstance` interface with `project`, `unproject`, `on`/`off` for move/resize events.
+- `frontend/src/hooks/useDashboardData.ts`: Fetches wind grid alongside other dashboard data.
+- `frontend/src/components/LiveMap.tsx`: Replaced CSS wind-drift overlay with canvas-based particle renderer integrated with map projection.
+- `frontend/src/App.tsx`: Passes `windGrid` prop to `LiveMap`.
+- `frontend/src/styles/global.css`: Removed `.wind-flow-overlay` CSS animation, added `.wind-particle-canvas` positioning.
+
+### Reason
+
+The original wind layer was a CSS-only illusion (uniform parallel lines in one direction). The new implementation shows real spatially-varying wind flow across the valley using actual Open-Meteo forecast vectors, rendered as Windy-style flowing particles.
+
+## Post-Phase-14 Map-First Product UI Redesign - 2026-07-09
+
+### Files changed
+
+- `frontend/src/App.tsx`: Reworked the public dashboard into a map-first product shell with a compact header, default AQI heatmap/wind/station layers, product tabs for overview/forecast/history, and no pipeline/provenance/method sections.
+- `frontend/src/components/LiveMap.tsx`: Added a Windy-style layer menu, default wind context overlay, tighter Kathmandu/Lalitpur/Bhaktapur-focused bounds, stronger AQI heatmap rendering, and text-first station labels.
+- `frontend/src/components/StationPopup.tsx`, `ForecastPanel.tsx`, `Pm25Chart.tsx`, `HistoricalExplorer.tsx`, and `ErrorPanel.tsx`: Replaced technical dashboard wording with user-facing AQI, health, trend, forecast, and history language.
+- `frontend/src/hooks/useDashboardData.ts`, `frontend/src/services/api.ts`, and `frontend/src/types/api.ts`: Removed pipeline health loading and frontend pipeline response wrappers from the public dashboard path.
+- `frontend/src/lib/aqi.ts` and `frontend/src/lib/aqi.test.ts`: Added product-facing data-mode labels and concise AQI health advice helpers.
+- `frontend/src/styles/global.css`: Added the full-viewport map layout, compact product header, layer drawer, wind overlay, station sheet, legend, and responsive map-first styling.
+- Deleted unused public frontend components for the old technical dashboard: `CoverageRibbon`, `GreetingSummaryDialog`, `PipelineHealth`, `ProvenancePanel`, and `WindRose`.
+- `docs/phase-summaries/POST-PHASE-14-map-first-product-ui-summary.md`: Added this maintenance session summary.
+
+### Reason
+
+The frontend needed to feel like a real air-quality map product rather than a data engineering project dashboard. The first screen should be the map, with AQI heatmap and wind context on by default, compact station details, and no visible pipeline/provenance terminology.
+
+### Impact
+
+The app now opens on a near full-screen Kathmandu Valley map with product-facing AQI labels, Windy-style map controls, a compact station sheet, and simplified overview/forecast/history panels below the map. Backend provenance, source modes, and pipeline endpoints remain unchanged; only the public React UI was simplified.
+
+### Verification performed
+
+- `npm --prefix frontend run build`: passed.
+- `npm --prefix frontend run lint`: passed.
+- `npm --prefix frontend run test -- --run`: passed.
+- `npm --prefix frontend run dev -- --port 3001`: passed with elevated local socket access; Vite served `http://localhost:3001/`.
+- `curl -sS -o /dev/null -w '%{http_code}' http://localhost:3001/`: passed with elevated local socket access (`200`).
+
+## Post-Phase-14 Data Source Outreach Emails - 2026-07-09
+
+### Files changed
+
+- `data-source-outreach-emails.txt`: Added copy-paste-ready outreach emails for OpenAQ, Australian Embassy in Nepal, International French School of Kathmandu, GD Labs, AE RESEARCH, and an IQAir follow-up request.
+
+### Reason
+
+The project needs practical outreach text for requesting Kathmandu Valley observed air-quality data access from likely station owners and data platforms.
+
+### Impact
+
+Dipan Kharel now has plain-text messages with verified contact routes where available and clear notes where public emails were not verified. No code, schemas, API behavior, or data provenance rules were changed.
+
+### Verification performed
+
+- `sed -n '1,260p' data-source-outreach-emails.txt`: passed.
+- `rg -n "\\[|\\]|Your Name|PLACEHOLDER|TODO" data-source-outreach-emails.txt`: passed with no matches.
+
 ## Post-Phase-14 Modeled Map Visibility and Replay Demo Reliability - 2026-06-07
 
 ### Files changed
