@@ -6,6 +6,10 @@ from services.forecasting.sarimax import sarimax_available
 
 
 def choose_forecast_model(context: ForecastContext, settings: ForecastSettings) -> ModelSelection:
+    forced_selection = _forced_model_selection(settings)
+    if forced_selection is not None:
+        return forced_selection
+
     expected_history_hours = settings.history_days * 24
     observed_coverage = _coverage(len(context.observed_history), expected_history_hours)
     weather_history_coverage = _coverage(len(context.weather_history), expected_history_hours)
@@ -41,6 +45,19 @@ def choose_forecast_model(context: ForecastContext, settings: ForecastSettings) 
         fallback_reason="; ".join(reasons),
         sarimax_rejection_reasons=tuple(sarimax_reasons),
     )
+
+
+def _forced_model_selection(settings: ForecastSettings) -> ModelSelection | None:
+    if settings.force_model is None:
+        return None
+    if settings.force_model in {"ml_placeholder", ForecastModel.ML_GBT_PLACEHOLDER.value}:
+        return ModelSelection(
+            model=ForecastModel.ML_GBT_PLACEHOLDER,
+            model_source="synthetic_untrained_ml_placeholder",
+            fallback_reason="Forced ML placeholder demo; untrained synthetic forecast for UI/report demonstration; not trained on HimalayaAir data.",
+            sarimax_rejection_reasons=("Forecast model was forced to the ML placeholder; normal SARIMAX arbitration was bypassed for demonstration.",),
+        )
+    raise ValueError(f"FORECAST_FORCE_MODEL must be ml_placeholder or empty, got {settings.force_model!r}")
 
 
 def _sarimax_rejection_reasons(

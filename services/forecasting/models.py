@@ -7,6 +7,7 @@ from enum import Enum
 
 class ForecastModel(str, Enum):
     SARIMAX = "sarimax"
+    ML_GBT_PLACEHOLDER = "hist_gradient_boosting_placeholder"
     MODELED_BIAS = "openmeteo_cams_bias_adjusted"
     PERSISTENCE = "persistence"
 

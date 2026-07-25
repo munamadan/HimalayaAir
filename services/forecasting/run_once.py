@@ -6,6 +6,7 @@ from time import monotonic
 
 from services.common.aqi_calculator import normalize_pollutant
 from services.forecasting.config import ForecastSettings
+from services.forecasting.ml_gbt import build_ml_placeholder_forecast
 from services.forecasting.modeled_bias import build_modeled_bias_forecast
 from services.forecasting.model_selection import choose_forecast_model
 from services.forecasting.models import ForecastModel, ForecastResult, ForecastRunResult, ModelSelection
@@ -133,6 +134,8 @@ def _build_forecast(context, settings: ForecastSettings, selection: ModelSelecti
             return build_sarimax_forecast(context, settings, selection)
         except SarimaxForecastError as exc:
             selection = _selection_after_sarimax_failure(context, settings, str(exc))
+    if selection.model == ForecastModel.ML_GBT_PLACEHOLDER:
+        return build_ml_placeholder_forecast(context, settings, selection)
     if selection.model == ForecastModel.MODELED_BIAS:
         return build_modeled_bias_forecast(context, settings, selection)
     return build_persistence_forecast(context, settings, selection)

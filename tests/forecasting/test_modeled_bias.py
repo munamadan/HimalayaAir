@@ -30,7 +30,7 @@ def test_modeled_bias_uses_median_observed_minus_modeled_bias():
             ModeledAQI(history_start + timedelta(hours=1), 95),
             ModeledAQI(history_start + timedelta(hours=2), 100),
         ),
-        modeled_future=tuple(ModeledAQI(future_start + timedelta(hours=index), 80) for index in range(72)),
+        modeled_future=tuple(ModeledAQI(future_start + timedelta(hours=index), 80) for index in range(48)),
         persistence_baseline=PersistenceBaseline(aqi=70, source="openaq_live", timestamp=generated_at),
     )
     selection = ModelSelection(
@@ -42,7 +42,7 @@ def test_modeled_bias_uses_median_observed_minus_modeled_bias():
 
     result = build_modeled_bias_forecast(context, _settings(), selection)
 
-    assert len(result.points) == 72
+    assert len(result.points) == 48
     assert result.points[0].predicted_aqi == 95
     assert result.model_source == "modeled_aq_with_observed_bias"
 

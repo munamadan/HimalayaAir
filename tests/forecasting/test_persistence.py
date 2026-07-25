@@ -35,9 +35,9 @@ def test_persistence_forecast_always_returns_full_horizon_shape():
     assert result.model_name == "persistence"
     assert result.model_source == "persistence_openaq_live"
     assert result.fallback_reason == "test fallback"
-    assert len(result.points) == 72
+    assert len(result.points) == 48
     assert result.points[0].horizon_hours == 1
-    assert result.points[-1].horizon_hours == 72
+    assert result.points[-1].horizon_hours == 48
     assert all(point.predicted_aqi == 91 for point in result.points)
     assert all(0 <= point.lower_bound <= point.upper_bound <= 500 for point in result.points)
 

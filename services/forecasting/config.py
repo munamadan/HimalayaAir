@@ -19,6 +19,7 @@ class ForecastSettings:
     max_stations: int
     default_baseline_aqi: int
     sarimax_enabled: bool
+    force_model: str | None
     pipeline_component: str
 
     @classmethod
@@ -28,7 +29,7 @@ class ForecastSettings:
             service_name=os.getenv("SERVICE_NAME", "forecast-recompute"),
             log_format=os.getenv("LOG_FORMAT", "json"),
             pollutants=_csv_env("FORECAST_POLLUTANTS", ("pm25",)),
-            horizon_hours=_bounded_int_env("FORECAST_HORIZON_HOURS", 72, minimum=1, maximum=168),
+            horizon_hours=_bounded_int_env("FORECAST_HORIZON_HOURS", 48, minimum=1, maximum=168),
             history_days=_bounded_int_env("FORECAST_HISTORY_DAYS", 90, minimum=1, maximum=366),
             bias_days=_bounded_int_env("FORECAST_BIAS_DAYS", 7, minimum=1, maximum=60),
             min_observed_coverage=_coverage_env("FORECAST_MIN_OBSERVED_COVERAGE", 0.70),
@@ -36,6 +37,7 @@ class ForecastSettings:
             max_stations=_int_env("FORECAST_MAX_STATIONS", 0),
             default_baseline_aqi=_bounded_int_env("FORECAST_DEFAULT_BASELINE_AQI", 50, minimum=0, maximum=500),
             sarimax_enabled=_bool_env("FORECAST_SARIMAX_ENABLED", True),
+            force_model=_optional_env("FORECAST_FORCE_MODEL"),
             pipeline_component=os.getenv("FORECAST_PIPELINE_COMPONENT", "forecast_recompute"),
         )
 
@@ -91,6 +93,13 @@ def _bool_env(name: str, default: bool) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise ValueError(f"{name} must be a boolean")
+
+
+def _optional_env(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
+    return value.strip().lower()
 
 
 def _sync_database_url(value: str | None) -> str:

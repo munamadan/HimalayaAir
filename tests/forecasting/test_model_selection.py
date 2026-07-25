@@ -73,7 +73,7 @@ def test_selects_persistence_when_modeled_future_is_incomplete(monkeypatch):
 
     assert selection.model == ForecastModel.PERSISTENCE
     assert "Future weather covariates are incomplete" in str(selection.fallback_reason)
-    assert "Modeled AQ forecast has 12 of 72" in str(selection.fallback_reason)
+    assert "Modeled AQ forecast has 12 of 48" in str(selection.fallback_reason)
 
 
 def test_statsmodels_unavailable_is_visible_in_fallback_reason(monkeypatch):
@@ -92,13 +92,30 @@ def test_statsmodels_unavailable_is_visible_in_fallback_reason(monkeypatch):
     assert "statsmodels is not available" in str(selection.fallback_reason)
 
 
-def _settings() -> ForecastSettings:
+def test_forced_ml_placeholder_bypasses_normal_arbitration():
+    settings = _settings(force_model="ml_placeholder")
+    context = _context(
+        observed_hours=0,
+        weather_history_hours=0,
+        future_weather_hours=0,
+        modeled_future_hours=0,
+    )
+
+    selection = choose_forecast_model(context, settings)
+
+    assert selection.model == ForecastModel.ML_GBT_PLACEHOLDER
+    assert selection.model_source == "synthetic_untrained_ml_placeholder"
+    assert "not trained on HimalayaAir data" in str(selection.fallback_reason)
+    assert "bypassed" in selection.sarimax_rejection_reasons[0]
+
+
+def _settings(force_model: str | None = None) -> ForecastSettings:
     return ForecastSettings(
         database_url="postgresql://example/example",
         service_name="forecast-test",
         log_format="json",
         pollutants=("pm25",),
-        horizon_hours=72,
+        horizon_hours=48,
         history_days=90,
         bias_days=7,
         min_observed_coverage=0.70,
@@ -106,6 +123,7 @@ def _settings() -> ForecastSettings:
         max_stations=0,
         default_baseline_aqi=50,
         sarimax_enabled=True,
+        force_model=force_model,
         pipeline_component="forecast_recompute",
     )
 
