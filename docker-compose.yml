@@ -202,7 +202,7 @@ services:
         VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8000/ws/live-feed}
         VITE_MAP_PROVIDER: ${VITE_MAP_PROVIDER:-maplibre}
         VITE_MAPBOX_TOKEN: ${VITE_MAPBOX_TOKEN:-}
-        VITE_MAP_STYLE_URL: ${VITE_MAP_STYLE_URL:-https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json}
+        VITE_MAP_STYLE_URL: ${VITE_MAP_STYLE_URL:-}
     profiles: ["core", "full"]
     restart: unless-stopped
     networks:
