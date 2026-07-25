@@ -2,6 +2,36 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Post-Phase-14 Forced 48-Hour ML Placeholder Forecast - 2026-07-26
+
+### Files changed
+
+- `services/forecasting/models.py`: Added the explicit `hist_gradient_boosting_placeholder` forecast model enum value.
+- `services/forecasting/config.py`: Changed the default forecast horizon to 48 hours and added blank `FORECAST_FORCE_MODEL` parsing.
+- `services/forecasting/model_selection.py`: Added a demo-only forced model branch that bypasses normal arbitration only when `FORECAST_FORCE_MODEL=ml_placeholder` is set.
+- `services/forecasting/ml_gbt.py`: Added the deterministic untrained ML-style 48-hour forecast builder with lag, rolling, diurnal, weather, modeled-AQ, station-offset, and horizon features.
+- `services/forecasting/run_once.py`: Routed the forced placeholder model into the normal forecast run path.
+- `.env.example` and `docker-compose.yml`: Documented `FORECAST_FORCE_MODEL` and changed the Compose forecast horizon default to 48 hours.
+- `tests/forecasting/test_model_selection.py`, `test_persistence.py`, `test_modeled_bias.py`, and `test_ml_gbt_placeholder.py`: Updated expectations to 48 hours and covered forced placeholder selection, labels, deterministic output, and feature-vector contents.
+- `docs/phase-summaries/POST-PHASE-14-ml-placeholder-forecast-summary.md`: Added this maintenance-session summary.
+
+### Reason
+
+The final-year project needs a visible 48-hour ML-style forecast code path for the report and demo, but laptop resources and sparse observed coverage make real model training unreliable right now. The safe implementation is a forced, clearly labeled placeholder that proves the forecasting path without pretending a trained model is running.
+
+### Impact
+
+Normal forecast arbitration remains SARIMAX first, then modeled AQ bias, then persistence. The ML placeholder is used only when explicitly forced with `FORECAST_FORCE_MODEL=ml_placeholder`; API rows then expose `hist_gradient_boosting_placeholder`, `synthetic_untrained_ml_placeholder`, and fallback text stating that the forecast is untrained and not learned from HimalayaAir data. Forecast horizon defaults are now 48 hours. No frontend files were changed.
+
+### Verification performed
+
+- `python -m py_compile services/forecasting/*.py`: passed.
+- `pytest tests/forecasting -q`: passed, 13 tests.
+- `pytest -q`: passed, 77 tests.
+- `docker compose --profile core config --quiet`: passed.
+- `FORECAST_FORCE_MODEL=ml_placeholder FORECAST_HORIZON_HOURS=48 timeout 20s python -m services.forecasting.run_once --dry-run`: passed; two stations selected the labeled placeholder and the dry run completed successfully.
+- `git diff --check`: passed.
+
 ## Post-Phase-14 Modeled Map Visibility and Replay Demo Reliability - 2026-06-07
 
 ### Files changed
