@@ -2,12 +2,13 @@ import type {
   ForecastResponse,
   HealthAdvisoryResponse,
   InterpolationResponse,
-  PipelineHealthResponse,
+  InterpolationTimelineResponse,
   StationCurrentResponse,
   StationHistoryResponse,
   StationsResponse,
   ValleyHistoryResponse,
   ValleyCurrentResponse,
+  WindGridResponse,
   WindRoseResponse,
 } from '../types/api';
 
@@ -67,6 +68,11 @@ export function getInterpolationCurrent(pollutant = 'pm25'): Promise<Interpolati
   return apiFetch<InterpolationResponse>(`/api/interpolation/current?pollutant=${encodeURIComponent(pollutant)}`);
 }
 
+export function getInterpolationTimeline(pollutant = 'pm25', hours = 24): Promise<InterpolationTimelineResponse> {
+  const search = new URLSearchParams({ pollutant, hours: String(hours) });
+  return apiFetch<InterpolationTimelineResponse>(`/api/interpolation/timeline?${search.toString()}`);
+}
+
 export function getStationCurrent(stationId: number): Promise<StationCurrentResponse> {
   return apiFetch<StationCurrentResponse>(`/api/stations/${stationId}/current`);
 }
@@ -74,10 +80,6 @@ export function getStationCurrent(stationId: number): Promise<StationCurrentResp
 export function getStationHistory(stationId: number, pollutant = 'pm25', hours = 24): Promise<StationHistoryResponse> {
   const search = new URLSearchParams({ pollutant, hours: String(hours), limit: '600' });
   return apiFetch<StationHistoryResponse>(`/api/stations/${stationId}/history?${search.toString()}`);
-}
-
-export function getPipelineHealth(): Promise<PipelineHealthResponse> {
-  return apiFetch<PipelineHealthResponse>('/api/pipeline/health');
 }
 
 export function getValleyHistory(
@@ -108,6 +110,10 @@ export function getHealthAdvisory(lat?: number, lon?: number): Promise<HealthAdv
 export function getWindRose(hours = 24, bins = 16): Promise<WindRoseResponse> {
   const search = new URLSearchParams({ hours: String(hours), bins: String(bins) });
   return apiFetch<WindRoseResponse>(`/api/weather/wind-rose?${search.toString()}`);
+}
+
+export function getWindGrid(): Promise<WindGridResponse> {
+  return apiFetch<WindGridResponse>('/api/weather/wind-grid');
 }
 
 function toApiUrl(path: string): string {

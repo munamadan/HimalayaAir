@@ -22,12 +22,18 @@ interface HistoricalExplorerProps {
   stations: StationSummary[];
   pollutant: string;
   onPollutantChange: (pollutant: string) => void;
+  compact?: boolean;
 }
 
 const TIME_ZONE = 'Asia/Kathmandu';
 const POLLUTANTS = ['pm25', 'pm10', 'o3', 'no2', 'so2', 'co'];
 
-export function HistoricalExplorer({ stations, pollutant, onPollutantChange }: HistoricalExplorerProps) {
+export function HistoricalExplorer({
+  stations,
+  pollutant,
+  onPollutantChange,
+  compact = false,
+}: HistoricalExplorerProps) {
   const [scope, setScope] = useState<HistoryScope>('valley');
   const [stationId, setStationId] = useState<number | null>(stations[0]?.id ?? null);
   const [granularity, setGranularity] = useState<HistoryGranularity>('hour');
@@ -123,14 +129,20 @@ export function HistoricalExplorer({ stations, pollutant, onPollutantChange }: H
   }, [endDate, showCovid, showMonsoon, showTihar, startDate]);
 
   return (
-    <section id="historical" className="historical-card" aria-label="Historical explorer">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">Historical explorer</span>
-          <h2>Calendar patterns and zoomable AQI timeline</h2>
+    <section
+      id="historical"
+      className={compact ? 'historical-card historical-card--compact' : 'historical-card'}
+      aria-label="Historical explorer"
+    >
+      {!compact && (
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">History</span>
+            <h2>Air quality patterns over time</h2>
+          </div>
+          <span className="chart-card__meta">bounded to 365 days</span>
         </div>
-        <span className="chart-card__meta">bounded to 365 days</span>
-      </div>
+      )}
 
       <div className="historical-controls">
         <label>
@@ -183,7 +195,7 @@ export function HistoricalExplorer({ stations, pollutant, onPollutantChange }: H
         <label><input type="checkbox" checked={showCovid} onChange={(event) => setShowCovid(event.target.checked)} /> COVID</label>
       </div>
 
-      {loading && <LoadingState title="Loading historical data" detail="Querying bounded history and annotation overlays." />}
+      {loading && <LoadingState title="Loading historical data" detail="Preparing the selected date range." />}
       {error && <ErrorPanel message={error} onRetry={() => setRetryNonce((current) => current + 1)} />}
 
       {!loading && !error && (

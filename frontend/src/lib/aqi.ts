@@ -48,25 +48,51 @@ export function markerRadius(aqi: number | null | undefined): number {
   return Math.max(14, Math.min(36, 14 + aqi / 10));
 }
 
-export function formatCoverageMode(mode: CoverageMode | string | null | undefined): string {
-  if (!mode) {
-    return 'NO DATA';
-  }
-  return mode.replace(/_/g, ' ');
+export function formatDataModeLabel(mode: CoverageMode | string | null | undefined): string {
+  const labels: Record<string, string> = {
+    LIVE_OBSERVED: 'Live station data',
+    RECENT_OBSERVED: 'Recent station data',
+    MODELED_BASELINE: 'Estimated air quality',
+    REPLAY_DEMO: 'Demo replay',
+    STATION_ONLY: 'Station view',
+    NO_DATA: 'No current data',
+  };
+  return labels[String(mode ?? 'NO_DATA')] ?? 'Air quality data';
 }
 
-export function formatSource(source: string | null | undefined): string {
-  if (!source) {
-    return 'not reported';
-  }
-  const labels: Record<string, string> = {
-    openaq_live: 'OpenAQ live sensor',
-    openaq_archive: 'OpenAQ archive',
-    openmeteo_cams: 'Open-Meteo CAMS modeled',
-    demo_replay: 'Kafka/Spark replay',
-    manual_seed: 'manual seed',
+export function dataModeSummary(mode: CoverageMode | string | null | undefined): string {
+  const summaries: Record<string, string> = {
+    LIVE_OBSERVED: 'Fresh station readings are shaping the map.',
+    RECENT_OBSERVED: 'Using recent station readings where live updates are sparse.',
+    MODELED_BASELINE: 'A regional estimate fills gaps between available stations.',
+    REPLAY_DEMO: 'Showing a demo playback of recent-style readings.',
+    STATION_ONLY: 'Station markers are available, but map coverage is limited.',
+    NO_DATA: 'Current air-quality readings are not available yet.',
   };
-  return labels[source] || source.replace(/_/g, ' ');
+  return summaries[String(mode ?? 'NO_DATA')] ?? 'Air-quality coverage is updating.';
+}
+
+export function healthAdviceForAqi(aqi: number | null | undefined): string {
+  const band = getAqiBand(aqi);
+  if (band.label === 'Good') {
+    return 'Good conditions for normal outdoor activity.';
+  }
+  if (band.label === 'Moderate') {
+    return 'Air is acceptable; sensitive people should watch symptoms.';
+  }
+  if (band.label === 'Unhealthy for Sensitive Groups') {
+    return 'Sensitive groups should reduce long outdoor exertion.';
+  }
+  if (band.label === 'Unhealthy') {
+    return 'Limit prolonged outdoor activity where possible.';
+  }
+  if (band.label === 'Very Unhealthy') {
+    return 'Avoid strenuous outdoor activity.';
+  }
+  if (band.label === 'Hazardous') {
+    return 'Stay indoors and reduce exposure.';
+  }
+  return 'Health guidance will appear when AQI is available.';
 }
 
 export function sortStationsForDisplay(stations: StationSummary[]): StationSummary[] {

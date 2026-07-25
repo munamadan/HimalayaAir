@@ -17,16 +17,16 @@ export function Pm25Chart({ histories }: Pm25ChartProps) {
     <section className="chart-card" aria-label="PM2.5 multi-station chart">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Live charts</span>
-          <h2>PM2.5 station traces</h2>
+          <span className="eyebrow">Trends</span>
+          <h2>PM2.5 over the last day</h2>
         </div>
         <span className="chart-card__meta">last 24 hours</span>
       </div>
 
       {rows.length === 0 ? (
         <div className="empty-chart">
-          <strong>No PM2.5 history returned</strong>
-          <p>The chart stays empty until the API provides station history. No frontend fixture values are invented.</p>
+          <strong>No PM2.5 history available</strong>
+          <p>Recent trend lines will appear when station history is available.</p>
         </div>
       ) : (
         <div className="chart-frame">
@@ -39,7 +39,7 @@ export function Pm25Chart({ histories }: Pm25ChartProps) {
                 contentStyle={{
                   background: '#08111f',
                   border: '1px solid rgba(148, 163, 184, 0.28)',
-                  borderRadius: '16px',
+                  borderRadius: '8px',
                   color: '#e5edf6',
                 }}
                 labelStyle={{ color: '#b6c3d1' }}

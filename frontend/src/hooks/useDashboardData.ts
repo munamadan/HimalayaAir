@@ -2,18 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 
 import {
   getInterpolationCurrent,
-  getPipelineHealth,
   getStationHistory,
   getStations,
   getValleyCurrent,
+  getWindGrid,
   getWindRose,
 } from '../services/api';
 import type {
   InterpolationResponse,
-  PipelineHealthResponse,
   StationHistorySet,
   StationsResponse,
   ValleyCurrentResponse,
+  WindGridResponse,
   WindRoseResponse,
 } from '../types/api';
 import { sortStationsForDisplay } from '../lib/aqi';
@@ -22,8 +22,8 @@ interface DashboardDataState {
   stations: StationsResponse | null;
   valley: ValleyCurrentResponse | null;
   interpolation: InterpolationResponse | null;
-  pipelineHealth: PipelineHealthResponse | null;
   windRose: WindRoseResponse | null;
+  windGrid: WindGridResponse | null;
   histories: StationHistorySet[];
   loading: boolean;
   refreshing: boolean;
@@ -36,8 +36,8 @@ export function useDashboardData(): DashboardDataState {
   const [stations, setStations] = useState<StationsResponse | null>(null);
   const [valley, setValley] = useState<ValleyCurrentResponse | null>(null);
   const [interpolation, setInterpolation] = useState<InterpolationResponse | null>(null);
-  const [pipelineHealth, setPipelineHealth] = useState<PipelineHealthResponse | null>(null);
   const [windRose, setWindRose] = useState<WindRoseResponse | null>(null);
+  const [windGrid, setWindGrid] = useState<WindGridResponse | null>(null);
   const [histories, setHistories] = useState<StationHistorySet[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,12 +51,12 @@ export function useDashboardData(): DashboardDataState {
     setRefreshing(silent);
     setError(null);
 
-    const [stationsResult, valleyResult, interpolationResult, pipelineResult, windRoseResult] = await Promise.allSettled([
+    const [stationsResult, valleyResult, interpolationResult, windRoseResult, windGridResult] = await Promise.allSettled([
       getStations(),
       getValleyCurrent(),
       getInterpolationCurrent('pm25'),
-      getPipelineHealth(),
       getWindRose(24, 16),
+      getWindGrid(),
     ]);
 
     const failures: string[] = [];
@@ -81,15 +81,16 @@ export function useDashboardData(): DashboardDataState {
       failures.push(errorMessage(interpolationResult.reason, 'interpolation grid'));
     }
 
-    if (pipelineResult.status === 'fulfilled') {
-      setPipelineHealth(pipelineResult.value);
-    } else {
-      failures.push(errorMessage(pipelineResult.reason, 'pipeline health'));
-    }
     if (windRoseResult.status === 'fulfilled') {
       setWindRose(windRoseResult.value);
     } else {
       setWindRose(null);
+    }
+
+    if (windGridResult.status === 'fulfilled') {
+      setWindGrid(windGridResult.value);
+    } else {
+      setWindGrid(null);
     }
 
     if (nextStations) {
@@ -117,8 +118,8 @@ export function useDashboardData(): DashboardDataState {
     stations,
     valley,
     interpolation,
-    pipelineHealth,
     windRose,
+    windGrid,
     histories,
     loading,
     refreshing,

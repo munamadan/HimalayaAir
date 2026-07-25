@@ -145,23 +145,21 @@ export interface InterpolationResponse {
   message: string;
 }
 
-export interface PipelineRunHealth {
-  component: string;
-  run_at: string | null;
-  status: string;
-  records_processed: number | null;
-  error_message: string | null;
-  duration_seconds: number | null;
-  metadata: Record<string, unknown>;
+export interface TimelineFrame {
+  hour_offset: number;
+  hour_bucket: string;
+  grid: InterpolationGrid;
+  station_count: number;
+  insufficient_data: boolean;
 }
 
-export interface PipelineHealthResponse {
-  status: string;
-  service: string;
-  timestamp: string;
-  checks: Record<string, unknown>;
-  pipeline_runs: PipelineRunHealth[];
-  coverage: CoverageMetadata;
+export interface InterpolationTimelineResponse {
+  frames: TimelineFrame[];
+  coverage_mode: CoverageMode;
+  confidence: Confidence;
+  source: string;
+  computed_at: string;
+  message: string;
 }
 
 export interface WindRoseBin {
@@ -175,6 +173,19 @@ export interface WindRoseResponse {
   hours: number;
   bins: WindRoseBin[];
   total_samples: number;
+}
+
+export interface WindGridPoint {
+  u: number;
+  v: number;
+}
+
+export interface WindGridResponse {
+  rows: number;
+  cols: number;
+  bounds: GridBounds;
+  timestamp: string;
+  grid: WindGridPoint[][];
 }
 
 export interface NearestStation {

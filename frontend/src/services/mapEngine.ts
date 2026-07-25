@@ -1,4 +1,25 @@
-const MAPLIBRE_DEFAULT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+const MAPLIBRE_DEFAULT_STYLE: Record<string, unknown> = {
+  version: 8,
+  name: 'HimalayaAir Light',
+  sources: {
+    'openstreetmap-light': {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
+    },
+  },
+  layers: [
+    {
+      id: 'openstreetmap-light',
+      type: 'raster',
+      source: 'openstreetmap-light',
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
 const MAPBOX_DEFAULT_STYLE = 'mapbox://styles/mapbox/light-v11';
 
 export type MapProvider = 'mapbox' | 'maplibre';
@@ -14,7 +35,7 @@ export interface MapEngineModule {
 
 export interface MapCreateOptions {
   container: HTMLElement;
-  style: string;
+  style: string | Record<string, unknown>;
   center: [number, number];
   zoom: number;
   maxBounds?: [[number, number], [number, number]];
@@ -68,6 +89,10 @@ export interface MapInstance {
   on(event: 'load', callback: () => void): void;
   on(event: 'error', callback: (event: { error?: Error }) => void): void;
   on(event: 'click' | 'mouseenter' | 'mouseleave', layerId: string, callback: (event: MapLayerEvent) => void): void;
+  on(event: 'move' | 'moveend' | 'resize', callback: () => void): void;
+  off(event: 'move' | 'moveend' | 'resize', callback: () => void): void;
+  project(lngLat: [number, number]): { x: number; y: number };
+  unproject(point: { x: number; y: number }): { lng: number; lat: number };
   remove(): void;
   removeLayer(id: string): void;
   removeSource(id: string): void;
@@ -83,7 +108,7 @@ export interface MapLayerEvent {
 export interface LoadedMapEngine {
   mapModule: MapEngineModule;
   provider: MapProvider;
-  styleUrl: string;
+  styleUrl: string | Record<string, unknown>;
   notice: string | null;
 }
 
@@ -106,7 +131,10 @@ export async function loadMapEngine(): Promise<LoadedMapEngine> {
 
   const maplibre = await import('maplibre-gl');
   const mapModule = (maplibre.default ?? maplibre) as unknown as MapEngineModule;
-  const styleUrl = configuredStyle && !configuredStyle.startsWith('mapbox://') ? configuredStyle : MAPLIBRE_DEFAULT_STYLE;
+  const styleUrl =
+    configuredStyle && !configuredStyle.startsWith('mapbox://')
+      ? configuredStyle
+      : MAPLIBRE_DEFAULT_STYLE;
   return {
     mapModule,
     provider: 'maplibre',

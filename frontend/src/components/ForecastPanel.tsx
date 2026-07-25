@@ -13,9 +13,17 @@ interface ForecastPanelProps {
   stationId: number | null;
   stationBasisMessage: string;
   onStationChange: (stationId: number) => void;
+  compact?: boolean;
 }
 
-export function ForecastPanel({ stations, pollutant, stationId, stationBasisMessage, onStationChange }: ForecastPanelProps) {
+export function ForecastPanel({
+  stations,
+  pollutant,
+  stationId,
+  stationBasisMessage,
+  onStationChange,
+  compact = false,
+}: ForecastPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forecast, setForecast] = useState<ForecastResponse | null>(null);
@@ -38,7 +46,7 @@ export function ForecastPanel({ stations, pollutant, stationId, stationBasisMess
         if (!cancelled) {
           if (loadError instanceof ApiError && loadError.status === 404) {
             setForecast(null);
-            setError('No forecast exists for this station/pollutant. Modeled fallback was not returned for this query.');
+            setError('No forecast is available for this station yet.');
           } else {
             setError(loadError instanceof Error ? loadError.message : 'Could not load forecast.');
           }
@@ -69,14 +77,20 @@ export function ForecastPanel({ stations, pollutant, stationId, stationBasisMess
   const bestWindows = useMemo(() => bestSixHourWindows((forecast?.forecasts ?? []).slice(0, 72), 3), [forecast?.forecasts]);
 
   return (
-    <section id="forecast" className="forecast-card" aria-label="Forecast panel">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">Forecast panel</span>
-          <h2>72-hour confidence band and best windows</h2>
+    <section
+      id="forecast"
+      className={compact ? 'forecast-card forecast-card--compact' : 'forecast-card'}
+      aria-label="Forecast panel"
+    >
+      {!compact && (
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">Forecast</span>
+            <h2>72-hour air quality outlook</h2>
+          </div>
+          <span className="chart-card__meta">{pollutant.toUpperCase()}</span>
         </div>
-        <span className="chart-card__meta">{pollutant.toUpperCase()}</span>
-      </div>
+      )}
       <div className="forecast-controls">
         <label>
           Station
@@ -91,40 +105,40 @@ export function ForecastPanel({ stations, pollutant, stationId, stationBasisMess
         <p className="forecast-controls__basis">{stationBasisMessage}</p>
       </div>
 
-      {loading && <p className="muted">Loading forecast…</p>}
+      {loading && <p className="muted">Loading forecast...</p>}
       {error && <p className="inline-error">{error}</p>}
 
       {!loading && !error && !forecast && <p className="muted">No forecast data returned for the selected station and pollutant.</p>}
 
       {!loading && !error && forecast && (
         <>
-          <dl className="provenance-list provenance-list--compact">
+          <dl className="detail-list detail-list--compact">
             <div>
-              <dt>Model</dt>
-              <dd>{forecast.model}</dd>
+              <dt>Next AQI</dt>
+              <dd>{chartRows[0]?.predicted ?? 'not available'}</dd>
             </div>
             <div>
-              <dt>Model source</dt>
-              <dd>{forecast.model_source}</dd>
+              <dt>72-hour low</dt>
+              <dd>{chartRows.length > 0 ? Math.min(...chartRows.map((row) => row.predicted)) : 'not available'}</dd>
             </div>
             <div>
-              <dt>Fallback reason</dt>
-              <dd>{forecast.fallback_reason ?? 'none (primary model used)'}</dd>
+              <dt>72-hour high</dt>
+              <dd>{chartRows.length > 0 ? Math.max(...chartRows.map((row) => row.predicted)) : 'not available'}</dd>
             </div>
             <div>
-              <dt>Historical MAE</dt>
-              <dd>{forecast.historical_mae ?? 'not available'}</dd>
+              <dt>Updated</dt>
+              <dd>{formatTimestamp(forecast.generated_at)}</dd>
             </div>
           </dl>
           <div className="chart-frame">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={compact ? 230 : 300}>
               <AreaChart data={chartRows} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="rgba(148, 163, 184, 0.16)" vertical={false} />
                 <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} minTickGap={20} />
                 <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} width={44} />
                 <Tooltip
-                  contentStyle={{ background: '#08111f', border: '1px solid rgba(148,163,184,0.28)', borderRadius: '16px' }}
-                  labelStyle={{ color: '#b6c3d1' }}
+                  contentStyle={{ background: '#ffffff', border: '1px solid #d8e1de', borderRadius: '8px' }}
+                  labelStyle={{ color: '#50605c' }}
                 />
                 <Area type="monotone" dataKey="upper" stroke="transparent" fill="rgba(56, 189, 248, 0.24)" />
                 <Area type="monotone" dataKey="lower" stroke="transparent" fill="rgba(3, 7, 17, 0.9)" />
@@ -149,7 +163,7 @@ export function ForecastPanel({ stations, pollutant, stationId, stationBasisMess
               </ul>
             )}
           </div>
-          <p className="muted">Generated at {formatTimestamp(forecast.generated_at)}. Confidence band reflects lower/upper forecast bounds.</p>
+          <p className="muted">Forecast bands show the expected range for planning outdoor time.</p>
         </>
       )}
     </section>
