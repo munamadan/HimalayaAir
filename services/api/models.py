@@ -150,6 +150,23 @@ class InterpolationResponse(APIModel):
     message: str
 
 
+class TimelineFrame(APIModel):
+    hour_offset: int = Field(le=0, ge=-23)
+    hour_bucket: datetime
+    grid: InterpolationGrid
+    station_count: int = Field(ge=0)
+    insufficient_data: bool
+
+
+class InterpolationTimelineResponse(APIModel):
+    frames: list[TimelineFrame]
+    coverage_mode: CoverageMode
+    confidence: Confidence
+    source: str
+    computed_at: datetime
+    message: str
+
+
 class NearestStation(APIModel):
     id: int
     name: str
@@ -198,6 +215,19 @@ class WindRoseResponse(APIModel):
     hours: int = Field(ge=1, le=24 * 31)
     bins: list[WindRoseBin]
     total_samples: int = Field(ge=0)
+
+
+class WindGridPoint(APIModel):
+    u: float
+    v: float
+
+
+class WindGridResponse(APIModel):
+    rows: int = Field(ge=1)
+    cols: int = Field(ge=1)
+    bounds: GridBounds
+    timestamp: datetime
+    grid: list[list[WindGridPoint]]
 
 
 class ForecastPoint(APIModel):

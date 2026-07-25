@@ -15,10 +15,12 @@ from services.api.models import (
     HealthAdvisoryResponse,
     InterpolationGrid,
     InterpolationResponse,
+    InterpolationTimelineResponse,
     PipelineHealthResponse,
     StationCurrentResponse,
     StationHistoryResponse,
     StationsResponse,
+    TimelineFrame,
     ValleyCurrentResponse,
     ValleyHistoryResponse,
     WindRoseResponse,
@@ -37,6 +39,7 @@ class ApiRepositoryProtocol(Protocol):
     async def fetch_station_history(self, station_id: int, *, pollutant: str | None, hours: int, limit: int) -> StationHistoryResponse: ...
     async def fetch_valley_history(self, *, pollutant: str | None, hours: int, granularity: str) -> list[object]: ...
     async def fetch_interpolation_points(self, *, mode: CoverageMode, pollutant: str) -> list[AQPoint]: ...
+    async def fetch_hourly_interpolation_points(self, *, pollutant: str, hours: int) -> dict[datetime, list[AQPoint]]: ...
     async def fetch_modeled_points(self, *, pollutant: str) -> list[AQPoint]: ...
     async def fetch_nearest_station(self, *, lat: float, lon: float) -> object | None: ...
     async def fetch_fire_events(self, *, days: int, limit: int, lat: float | None, lon: float | None) -> list[object]: ...
@@ -157,6 +160,58 @@ async def get_interpolation_response(repo: ApiRepositoryProtocol, settings: ApiS
             insufficient_data=False,
             message=coverage.message or "Interpolated current AQI using local meter distances.",
         )
+    await caches.idw.set(cache_key, response)
+    return response
+
+
+TIMELINE_GRID_ROWS = 30
+TIMELINE_GRID_COLS = 30
+
+
+async def get_interpolation_timeline_response(
+    repo: ApiRepositoryProtocol, settings: ApiSettings, caches: ApiCaches, *, pollutant: str, hours: int
+) -> InterpolationTimelineResponse:
+    cache_key = f"timeline:{pollutant}:{hours}"
+    cached = await caches.idw.get(cache_key)
+    if isinstance(cached, InterpolationTimelineResponse):
+        return cached
+
+    coverage = await repo.fetch_coverage_metadata()
+    mode = _coverage_mode(coverage)
+    source = interpolation_source_for_mode(mode)
+
+    hourly_points = await repo.fetch_hourly_interpolation_points(pollutant=pollutant, hours=hours)
+
+    now = utc_now()
+    frames: list[TimelineFrame] = []
+    for bucket in sorted(hourly_points.keys(), reverse=True):
+        points = hourly_points[bucket]
+        usable = [p for p in points if p.aqi is not None]
+        insufficient = len(usable) < 3
+        if insufficient:
+            grid = InterpolationGrid(rows=TIMELINE_GRID_ROWS, cols=TIMELINE_GRID_COLS, bounds=KATHMANDU_BOUNDS, values=[])
+        else:
+            grid = build_idw_grid(points, rows=TIMELINE_GRID_ROWS, cols=TIMELINE_GRID_COLS, power=settings.idw_power)
+        offset_hours = int((bucket - now).total_seconds() // 3600)
+        offset_hours = max(offset_hours, -(hours - 1))
+        frames.append(TimelineFrame(
+            hour_offset=offset_hours,
+            hour_bucket=bucket,
+            grid=grid,
+            station_count=len(points),
+            insufficient_data=insufficient,
+        ))
+
+    frames = frames[:hours]
+
+    response = InterpolationTimelineResponse(
+        frames=frames,
+        coverage_mode=mode,
+        confidence=_coverage_confidence(coverage),
+        source=source,
+        computed_at=utc_now(),
+        message=f"Timeline with {len(frames)} hourly frames" if frames else "No historical hourly data available",
+    )
     await caches.idw.set(cache_key, response)
     return response
 

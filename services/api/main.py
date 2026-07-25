@@ -19,12 +19,14 @@ from services.api.models import (
     ForecastResponse,
     HealthAdvisoryResponse,
     InterpolationResponse,
+    InterpolationTimelineResponse,
     PipelineHealthResponse,
     StationCurrentResponse,
     StationHistoryResponse,
     StationsResponse,
     ValleyCurrentResponse,
     ValleyHistoryResponse,
+    WindGridResponse,
     WindRoseResponse,
 )
 from services.api.repository import ApiNotFoundError, ApiRepository
@@ -34,6 +36,7 @@ from services.api.service import (
     get_forecast_response,
     get_health_advisory_response,
     get_interpolation_response,
+    get_interpolation_timeline_response,
     get_pipeline_health_response,
     get_station_current_response,
     get_stations_response,
@@ -138,6 +141,16 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     ) -> InterpolationResponse:
         return await get_interpolation_response(repo, settings_dep, caches_dep, pollutant=pollutant)
 
+    @app.get("/api/interpolation/timeline", response_model=InterpolationTimelineResponse)
+    async def interpolation_timeline(
+        pollutant: str = Query(default="pm25", min_length=1, max_length=20),
+        hours: int = Query(default=24, ge=1, le=48),
+        repo: ApiRepository = Depends(get_repository),
+        settings_dep: ApiSettings = Depends(get_settings),
+        caches_dep: ApiCaches = Depends(get_caches),
+    ) -> InterpolationTimelineResponse:
+        return await get_interpolation_timeline_response(repo, settings_dep, caches_dep, pollutant=pollutant, hours=hours)
+
     @app.get("/api/health-advisory", response_model=HealthAdvisoryResponse)
     async def health_advisory(
         lat: float | None = Query(default=None, ge=-90, le=90),
@@ -182,6 +195,18 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         repo: ApiRepository = Depends(get_repository),
     ) -> WindRoseResponse:
         return await get_wind_rose_response(repo, hours=hours, bins=bins)
+
+    @app.get("/api/weather/wind-grid", response_model=WindGridResponse)
+    async def weather_wind_grid() -> WindGridResponse:
+        from services.api.wind_grid import get_wind_grid
+
+        grid = await get_wind_grid()
+        if grid is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Wind grid data is not available yet",
+            )
+        return grid
 
     @app.websocket("/ws/live-feed")
     async def live_feed(

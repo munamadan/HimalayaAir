@@ -419,6 +419,49 @@ class ApiRepository:
             )
         return points
 
+    async def fetch_hourly_interpolation_points(self, *, pollutant: str, hours: int) -> dict[datetime, list[AQPoint]]:
+        result = await self.session.execute(
+            text(
+                """
+                SELECT
+                    ah.station_id,
+                    s.name,
+                    ST_Y(s.location)::float8 AS lat,
+                    ST_X(s.location)::float8 AS lon,
+                    ah.pollutant,
+                    ah.avg_value::float8 AS value,
+                    ROUND(ah.avg_aqi)::int AS aqi,
+                    ah.hour_bucket
+                FROM aq_hourly ah
+                JOIN stations s ON s.id = ah.station_id
+                WHERE ah.pollutant = :pollutant
+                  AND ah.hour_bucket >= NOW() - (:hours * INTERVAL '1 hour')
+                  AND ah.hour_bucket <= NOW()
+                ORDER BY ah.hour_bucket, ah.station_id
+                """
+            ),
+            {"pollutant": normalize_pollutant(pollutant), "hours": hours},
+        )
+        grouped: dict[datetime, list[AQPoint]] = {}
+        for row in result.mappings():
+            bucket = ensure_utc(row["hour_bucket"])
+            aqi = _optional_int(row["aqi"])
+            if aqi is None and row["value"] is not None:
+                aqi = calculate_aqi(normalize_pollutant(pollutant), float(row["value"]), "ug/m3")
+            point = AQPoint(
+                id=int(row["station_id"]),
+                name=str(row["name"]),
+                lat=float(row["lat"]),
+                lon=float(row["lon"]),
+                aqi=aqi,
+                pollutant=normalize_pollutant(str(row["pollutant"])),
+                source="openaq_live",
+                observation_type="observed",
+                timestamp=bucket,
+            )
+            grouped.setdefault(bucket, []).append(point)
+        return grouped
+
     async def fetch_nearest_station(self, *, lat: float, lon: float) -> NearestStation | None:
         result = await self.session.execute(
             text(
