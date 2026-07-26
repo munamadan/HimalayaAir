@@ -46,6 +46,7 @@ interface LiveMapProps {
   showHeatmap: boolean;
   showWind: boolean;
   showStations: boolean;
+  heatmapMessage?: string | null;
   onSelectStation: (stationId: number) => void;
 }
 
@@ -57,6 +58,7 @@ export function LiveMap({
   showHeatmap,
   showWind,
   showStations,
+  heatmapMessage = null,
   onSelectStation,
 }: LiveMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -220,10 +222,10 @@ export function LiveMap({
     }
   }, [showWind, windGrid, mapReady]);
 
-  const heatmapNotice = showHeatmap && mapReady && !hasUsableHeatmap(interpolation)
+  const heatmapUnavailableNotice = showHeatmap && mapReady && !hasUsableHeatmap(interpolation)
     ? interpolation?.message ?? 'AQI surface data is not available yet.'
     : null;
-  const visibleNotice = notice ?? heatmapNotice;
+  const visibleNotice = notice ?? (showHeatmap ? heatmapMessage : null) ?? heatmapUnavailableNotice;
 
   const resetMapView = () => {
     mapRef.current?.easeTo({

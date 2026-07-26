@@ -65,7 +65,7 @@ export function AppRail({
             label="AQI surface"
             checked={showHeatmap && heatmapAvailable}
             disabled={!heatmapAvailable}
-            detail={heatmapAvailable ? null : heatmapMessage ?? 'AQI surface data is not available yet.'}
+            detail={heatmapMessage ?? (heatmapAvailable ? null : 'AQI surface data is not available yet.')}
             onChange={onToggleHeatmap}
             icon={<Waves size={18} />}
           />

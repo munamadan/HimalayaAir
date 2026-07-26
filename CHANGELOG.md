@@ -2,6 +2,31 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Post-Phase-14 Always-On Last-Known AQI Heatmap - 2026-07-26
+
+### Files changed
+
+- `frontend/src/lib/stationHeatmap.ts`: Added a client-side IDW heatmap builder that uses the latest station AQI snapshot when the API interpolation grid is unavailable or insufficient.
+- `frontend/src/lib/heatmapCache.ts`: Added browser storage for the last usable API interpolation grid and the last station-derived AQI heatmap.
+- `frontend/src/App.tsx`: Added heatmap fallback priority of current API grid, latest station-derived grid, cached station-derived grid, then cached last usable API grid; websocket station updates refresh the station-derived surface.
+- `frontend/src/components/AppRail.tsx` and `frontend/src/components/LiveMap.tsx`: Kept the AQI surface toggle usable with fallback data and show last-known/latest-station messages instead of silently removing the heatmap.
+- `frontend/src/lib/stationHeatmap.test.ts` and `frontend/src/lib/heatmapCache.test.ts`: Added unit coverage for station-derived grids, empty station data, cache freshness, and insufficient payload rejection.
+
+### Reason
+
+The heatmap toggle could be switched on while no current API interpolation grid existed, making the map appear to ignore the toggle. The product expectation is that the AQI surface should remain visible from the last known station AQI readings and only update when newer readings arrive.
+
+### Impact
+
+The AQI heatmap now stays visible whenever current or cached station AQI data exists. Fresh API interpolation still wins when available; otherwise the map renders a clearly messaged station-derived or cached surface. The toggle still turns the layer off and on. Fallback surfaces are presentation-layer caches and are labeled through UI messages rather than being treated as new live API data.
+
+### Verification performed
+
+- `npm --prefix frontend run lint`: passed.
+- `npm --prefix frontend run test -- --run`: passed, 17 tests.
+- `npm --prefix frontend run build`: passed; Vite reported the existing large-chunk warning.
+- `git diff --check`: passed.
+
 ## Post-Phase-14 Heatmap Availability Toggle Fix - 2026-07-26
 
 ### Files changed

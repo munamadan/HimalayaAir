@@ -25,7 +25,14 @@ import { useResponsiveMode } from './hooks/useResponsiveMode';
 import { useStationCurrent } from './hooks/useStationCurrent';
 import { useTimelineSlider } from './hooks/useTimelineSlider';
 import { sortStationsForDisplay } from './lib/aqi';
+import {
+  loadLastGoodInterpolation,
+  loadLastStationHeatmap,
+  saveLastGoodInterpolation,
+  saveLastStationHeatmap,
+} from './lib/heatmapCache';
 import { hasUsableHeatmap } from './lib/heatmapCanvas';
+import { buildStationHeatmap } from './lib/stationHeatmap';
 import { getHealthAdvisory } from './services/api';
 import type {
   CoverageMode,
@@ -55,6 +62,8 @@ function App() {
   const [mobileSheetSnap, setMobileSheetSnap] = useState<MobileSheetSnap>('half');
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [cachedStationHeatmap, setCachedStationHeatmap] = useState(() => loadLastStationHeatmap());
+  const [lastGoodInterpolation, setLastGoodInterpolation] = useState(() => loadLastGoodInterpolation());
 
   const handleLiveEvent = useCallback(
     (event: WebSocketEvent) => {
@@ -97,8 +106,50 @@ function App() {
   const inspectorOpen = isMobile || inspectorVisibility === 'open';
   const windAvailable = dashboard.windGrid !== null;
   const activeInterpolation = timeline.activeInterpolation;
-  const heatmapAvailable = hasUsableHeatmap(activeInterpolation);
-  const heatmapMessage = activeInterpolation?.message ?? null;
+  const activeInterpolationUsable = hasUsableHeatmap(activeInterpolation);
+  const latestStationHeatmap = useMemo(
+    () =>
+      buildStationHeatmap(sortedStations, {
+        rows: activeInterpolation?.grid.rows ?? 50,
+        cols: activeInterpolation?.grid.cols ?? 50,
+        coverageMode: dashboard.stations?.coverage_mode ?? activeInterpolation?.coverage_mode,
+        confidence: dashboard.stations?.confidence ?? 'low',
+        source: 'station_snapshot',
+        computedAt: dashboard.stations?.timestamp,
+        message: 'Showing the latest station AQI surface.',
+      }),
+    [
+      activeInterpolation?.coverage_mode,
+      activeInterpolation?.grid.cols,
+      activeInterpolation?.grid.rows,
+      dashboard.stations?.confidence,
+      dashboard.stations?.coverage_mode,
+      dashboard.stations?.timestamp,
+      sortedStations,
+    ],
+  );
+  const displayInterpolation = activeInterpolationUsable
+    ? activeInterpolation
+    : latestStationHeatmap ?? cachedStationHeatmap ?? lastGoodInterpolation;
+  const heatmapAvailable = hasUsableHeatmap(displayInterpolation);
+  const usingFallbackHeatmap = !activeInterpolationUsable && heatmapAvailable;
+  const heatmapMessage = usingFallbackHeatmap
+    ? displayInterpolation?.message ?? 'Showing the last known AQI surface.'
+    : null;
+
+  useEffect(() => {
+    if (activeInterpolationUsable && activeInterpolation) {
+      saveLastGoodInterpolation(activeInterpolation);
+      setLastGoodInterpolation(activeInterpolation);
+    }
+  }, [activeInterpolation, activeInterpolationUsable]);
+
+  useEffect(() => {
+    if (latestStationHeatmap) {
+      saveLastStationHeatmap(latestStationHeatmap);
+      setCachedStationHeatmap(latestStationHeatmap);
+    }
+  }, [latestStationHeatmap]);
 
   useEffect(() => {
     if (!locationNotice) {
@@ -229,12 +280,13 @@ function App() {
     >
       <LiveMap
         stations={sortedStations}
-        interpolation={activeInterpolation}
+        interpolation={displayInterpolation}
         windGrid={dashboard.windGrid}
         selectedStationId={selectedStationId}
         showHeatmap={showHeatmap}
         showWind={showWind}
         showStations={showStations}
+        heatmapMessage={heatmapMessage}
         onSelectStation={handleMapStationSelect}
       />
 
