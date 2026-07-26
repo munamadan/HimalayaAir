@@ -25,6 +25,7 @@ import { useResponsiveMode } from './hooks/useResponsiveMode';
 import { useStationCurrent } from './hooks/useStationCurrent';
 import { useTimelineSlider } from './hooks/useTimelineSlider';
 import { sortStationsForDisplay } from './lib/aqi';
+import { hasUsableHeatmap } from './lib/heatmapCanvas';
 import { getHealthAdvisory } from './services/api';
 import type {
   CoverageMode,
@@ -95,6 +96,9 @@ function App() {
     : 'Choose a station to view the 72-hour forecast.';
   const inspectorOpen = isMobile || inspectorVisibility === 'open';
   const windAvailable = dashboard.windGrid !== null;
+  const activeInterpolation = timeline.activeInterpolation;
+  const heatmapAvailable = hasUsableHeatmap(activeInterpolation);
+  const heatmapMessage = activeInterpolation?.message ?? null;
 
   useEffect(() => {
     if (!locationNotice) {
@@ -225,7 +229,7 @@ function App() {
     >
       <LiveMap
         stations={sortedStations}
-        interpolation={timeline.activeInterpolation}
+        interpolation={activeInterpolation}
         windGrid={dashboard.windGrid}
         selectedStationId={selectedStationId}
         showHeatmap={showHeatmap}
@@ -252,6 +256,8 @@ function App() {
         showHeatmap={showHeatmap}
         showWind={showWind}
         showStations={showStations}
+        heatmapAvailable={heatmapAvailable}
+        heatmapMessage={heatmapMessage}
         windAvailable={windAvailable}
         onModeChange={handleModeChange}
         onToggleHeatmap={() => setShowHeatmap((current) => !current)}

@@ -559,6 +559,14 @@ a:focus-visible {
   font-size: 0.8rem;
 }
 
+.layer-toggle small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
 .layer-toggle input,
 .mobile-layer-toggle input {
   position: relative;

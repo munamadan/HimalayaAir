@@ -6,13 +6,21 @@ export interface HeatmapImage {
   coordinates: [[number, number], [number, number], [number, number], [number, number]];
 }
 
+export function hasUsableHeatmap(interpolation: InterpolationResponse | null | undefined): boolean {
+  if (!interpolation) {
+    return false;
+  }
+  const { rows, cols, values } = interpolation.grid;
+  return !interpolation.insufficient_data && rows > 0 && cols > 0 && values.length > 0;
+}
+
 export function interpolationToImage(interpolation: InterpolationResponse): HeatmapImage | null {
+  if (!hasUsableHeatmap(interpolation)) {
+    return null;
+  }
   const values = interpolation.grid.values;
   const rows = interpolation.grid.rows;
   const cols = interpolation.grid.cols;
-  if (interpolation.insufficient_data || rows <= 0 || cols <= 0 || values.length === 0) {
-    return null;
-  }
 
   const canvas = document.createElement('canvas');
   canvas.width = cols;

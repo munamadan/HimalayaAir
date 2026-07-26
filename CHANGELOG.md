@@ -2,6 +2,31 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Post-Phase-14 Heatmap Availability Toggle Fix - 2026-07-26
+
+### Files changed
+
+- `frontend/src/lib/heatmapCanvas.ts`: Added a shared `hasUsableHeatmap` predicate and reused it before rendering the interpolation image.
+- `frontend/src/App.tsx` and `frontend/src/components/AppRail.tsx`: Passed heatmap availability and the API message into the layer popover so the AQI surface toggle disables with an explanation when no renderable grid exists.
+- `frontend/src/components/LiveMap.tsx`: Shows the interpolation API message on the map when the heatmap is toggled on but unavailable.
+- `frontend/src/styles/global.css`: Added compact layer-toggle detail styling.
+- `frontend/src/lib/heatmapCanvas.test.ts`: Added unit coverage for missing, insufficient, empty, and renderable interpolation grids.
+
+### Reason
+
+The AQI surface toggle could appear enabled while the heatmap layer was intentionally removed because the current or timeline interpolation response had insufficient data or an empty grid. Wind already had an availability state; heatmap needed the same honest UI state.
+
+### Impact
+
+The layer popover now disables the AQI surface toggle when no renderable heatmap exists and shows the backend message instead of silently doing nothing. The map also surfaces the same message when the toggle is on during insufficient data. No API contract, provenance mode, forecast behavior, or interpolation threshold was changed.
+
+### Verification performed
+
+- `npm --prefix frontend run lint`: passed.
+- `npm --prefix frontend run test -- --run`: passed, 11 tests.
+- `npm --prefix frontend run build`: passed; Vite reported the existing large-chunk warning.
+- `git diff --check`: passed.
+
 ## Post-Phase-14 Forced 48-Hour ML Placeholder Forecast - 2026-07-26
 
 ### Files changed

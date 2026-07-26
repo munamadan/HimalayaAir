@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { AQI_BANDS, getAqiBand } from '../lib/aqi';
-import { interpolationToImage } from '../lib/heatmapCanvas';
+import { hasUsableHeatmap, interpolationToImage } from '../lib/heatmapCanvas';
 import { WindCanvasRenderer } from '../lib/windParticles';
 import {
   loadMapEngine,
@@ -220,6 +220,11 @@ export function LiveMap({
     }
   }, [showWind, windGrid, mapReady]);
 
+  const heatmapNotice = showHeatmap && mapReady && !hasUsableHeatmap(interpolation)
+    ? interpolation?.message ?? 'AQI surface data is not available yet.'
+    : null;
+  const visibleNotice = notice ?? heatmapNotice;
+
   const resetMapView = () => {
     mapRef.current?.easeTo({
       center: KATHMANDU_CENTER,
@@ -253,7 +258,7 @@ export function LiveMap({
         ))}
       </div>
 
-      {notice && <p className="map-notice">{notice}</p>}
+      {visibleNotice && <p className="map-notice">{visibleNotice}</p>}
     </section>
   );
 }

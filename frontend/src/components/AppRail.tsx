@@ -8,6 +8,8 @@ interface AppRailProps {
   showHeatmap: boolean;
   showWind: boolean;
   showStations: boolean;
+  heatmapAvailable: boolean;
+  heatmapMessage: string | null;
   windAvailable: boolean;
   onModeChange: (mode: InspectorMode) => void;
   onToggleHeatmap: () => void;
@@ -20,6 +22,8 @@ export function AppRail({
   showHeatmap,
   showWind,
   showStations,
+  heatmapAvailable,
+  heatmapMessage,
   windAvailable,
   onModeChange,
   onToggleHeatmap,
@@ -59,7 +63,9 @@ export function AppRail({
           </header>
           <LayerToggle
             label="AQI surface"
-            checked={showHeatmap}
+            checked={showHeatmap && heatmapAvailable}
+            disabled={!heatmapAvailable}
+            detail={heatmapAvailable ? null : heatmapMessage ?? 'AQI surface data is not available yet.'}
             onChange={onToggleHeatmap}
             icon={<Waves size={18} />}
           />
@@ -107,16 +113,18 @@ interface LayerToggleProps {
   label: string;
   checked: boolean;
   disabled?: boolean;
+  detail?: string | null;
   icon: ReactNode;
   onChange: () => void;
 }
 
-function LayerToggle({ label, checked, disabled = false, icon, onChange }: LayerToggleProps) {
+function LayerToggle({ label, checked, disabled = false, detail = null, icon, onChange }: LayerToggleProps) {
   return (
     <label className={disabled ? 'layer-toggle layer-toggle--disabled' : 'layer-toggle'}>
       <span className="layer-toggle__icon">{icon}</span>
       <span>
         <strong>{label}</strong>
+        {detail && <small>{detail}</small>}
       </span>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={onChange} />
     </label>
