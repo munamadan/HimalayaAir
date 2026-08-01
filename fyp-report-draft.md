@@ -119,3 +119,71 @@ Apache Kafka is a distributed event streaming platform. In simple terms it works
 HimalayaAir uses a single KRaft Kafka broker as the central bus between ingestion and processing. The system declares six topics. The `raw-aq-readings` topic carries unprocessed sensor messages from the OpenAQ poller and the replay publisher. The `processed-aq-readings` topic carries validated and enriched readings from the Spark job, which the API live feed and downstream consumers read. The `weather-data` and `modeled-aq-data` topics are reserved for weather and modeled air-quality payloads. A `raw-aq-readings-dlq` dead-letter topic holds payloads that failed validation, so bad data is never silently dropped. A `pipeline-events` topic is reserved for operational events. Message keys include the station, sensor, pollutant, and timestamp, so records for the same sensor stay in order on the same partition. Raw topics keep 24 hours of retention, which matches the short operational window the streaming job needs [(Author, Year)].
 
 Figure 1: Kafka topic and producer/consumer block diagram
+
+#### 2.1.2 Spark Structured Streaming
+
+Apache Spark is a distributed data processing engine, and Structured Streaming is its API for working on data that never stops arriving. The core idea is to treat a live stream as a table that keeps growing. The engine reads new records in small batches called micro-batches, runs the same query on each batch, and keeps track of progress with checkpoint files so it can recover after a crash without losing or repeating data [(Author, Year)]. Each streaming query has a trigger interval, and the engine polls the source, for example a Kafka topic, at that interval. Writes to a sink can be made exactly-once when the sink supports idempotent writes, which matters when duplicates would otherwise corrupt stored measurements [(Author, Year)].
+
+HimalayaAir runs one Spark job on a local two-core Spark 3.5 installation. The job reads the `raw-aq-readings` Kafka topic every 30 seconds. For each micro-batch it validates the payloads against a message schema, computes AQI with EPA 2024 breakpoints, flags anomalies with range checks and rolling z-scores, derives the provenance mode of each reading, and writes the results into the `aq_readings` hypertable with an upsert that ignores duplicates on the sensor and timestamp key. Readings that fail validation go to the dead-letter topic. After a batch is written, the job publishes a batch summary message onto `processed-aq-readings` so the API live feed can notify connected clients. Checkpoint files are kept on a mounted volume so the job resumes from the last offset after a restart [(Author, Year)].
+
+Figure 2: Spark Structured Streaming pipeline block diagram
+
+#### 2.1.3 TimescaleDB Hypertables and PostGIS
+
+TimescaleDB is an extension that adds time-series features on top of PostgreSQL. Its main feature is the hypertable. A hypertable looks like a normal table to the application, but TimescaleDB splits it automatically into smaller chunks along a time column. Queries that filter by time only scan the chunks that overlap the requested window, and old chunks can be dropped or compressed without touching recent data [(Author, Year)]. TimescaleDB also provides continuous aggregates, which are materialized views that stay fresh in the background as new rows arrive, so common rollups like hourly averages do not need to be recomputed from raw rows on every query [(Author, Year)]. PostGIS is a separate extension that adds spatial types and functions, for example points and polygons, distance calculations, and spatial indexes [(Author, Year)].
+
+HimalayaAir stores all air-quality, weather, and modeled data in TimescaleDB hypertables chunked into seven-day intervals. Every hypertable primary key includes the time column, which TimescaleDB requires for uniqueness on a partitioned table. Three continuous aggregates sit on top of the air-quality readings: an hourly average, a daily average, and a daily valley-wide summary, and each has a background refresh policy. PostGIS holds the station points, the district boundaries, and the fire-event points, all in the WGS 84 coordinate system with GiST spatial indexes. The system uses PostGIS queries for nearest-station lookup, for assigning a reading to its district, and for filtering fire events inside the valley bounding box [(Author, Year)].
+
+Figure 3: Hypertable and continuous aggregate model
+
+#### 2.1.4 Airflow Orchestration
+
+Apache Airflow is a workflow orchestration tool. Work in Airflow is written as a directed acyclic graph, or DAG. A DAG is a Python file that declares a set of tasks and the order they must run in. A scheduler triggers the DAG on a cron schedule or on demand, and each task runs, reports success or failure, and can be retried independently [(Author, Year)]. Airflow also keeps a record of every run, so a long backfill can be monitored task by task, and a failed task can be rerun without repeating the tasks that already succeeded. Because DAGs are plain code, they can read configuration, call external APIs, and write to databases like any other Python program [(Author, Year)].
+
+HimalayaAir defines five DAGs. Two are manual backfills: one replays the OpenAQ historical archive into the readings table, and one replays the Open-Meteo weather archive. Two run on a schedule: a data-quality check every two hours that counts fresh, recent, and dead sensors, and a daily fire-event load from NASA FIRMS. The fifth is an hourly hook that triggers forecast recomputation. All of these DAGs are thin wrappers around shared task code, and they stay idempotent through a backfill manifest table that records which source, sensor, and date has already been loaded. Running the same backfill twice does not create duplicate rows [(Author, Year)].
+
+Figure 4: Airflow DAG dependency block diagram
+
+#### 2.1.5 FastAPI and WebSocket Live Feed
+
+FastAPI is a Python web framework for building HTTP APIs. It is built on top of Starlette and Pydantic, so request and response bodies are validated against typed schemas, and the framework can generate an OpenAPI document automatically [(Author, Year)]. FastAPI also supports asynchronous handlers on top of the asyncio event loop, so one process can hold many concurrent connections without blocking. A WebSocket is a separate protocol that upgrades an HTTP connection into a two-way channel. Once the upgrade happens, the server can push messages to the client at any time, which suits live dashboards that need new readings without polling [(Author, Year)].
+
+HimalayaAir exposes a FastAPI application with around a dozen REST endpoints. They cover station snapshots, per-station history, valley composite AQI, IDW interpolation grids, forecasts, health advisories, fire events, weather wind data, and pipeline health. The same application also holds one WebSocket endpoint at `/ws/live-feed`. When a client connects, the server first sends a full station snapshot, then pushes new-reading messages as the Spark batch summaries arrive on Kafka, and sends a heartbeat if the connection goes quiet. If the Kafka consumer is unavailable, the API falls back to polling the database for the latest reading timestamp and pushes updates from that instead. Response validation is done with Pydantic models, and an in-memory cache with a short time-to-live keeps the heaviest spatial queries cheap [(Author, Year)].
+
+Figure 5: FastAPI and WebSocket block diagram
+
+#### 2.1.6 Spatial Interpolation (IDW) and AQI Calculation
+
+Air-quality stations are points, but pollution varies over an area. To draw a continuous surface from a handful of stations, the system needs a spatial interpolation method. Inverse distance weighting, or IDW, is one of the simplest. To estimate a value at an unmeasured location, IDW averages the known station values, weighting each station by the inverse of its distance raised to a power, usually two. Stations closer to the location influence the estimate more than stations farther away [(Author, Year)]. IDW is fast and easy to explain, which matters for a student project, and it behaves predictably when the station count is small. More advanced methods like kriging model spatial correlation but need more stations and more care to set up.
+
+The Air Quality Index, or AQI, converts a pollutant concentration into a single number on a common scale. The EPA 2024 version used here defines breakpoints for each pollutant, so a measured concentration is mapped linearly between the breakpoints of its bracket [(Author, Year)]. A station can report several pollutants, and the overall AQI for the station is the maximum of the per-pollutant values. The pollutant that gives that maximum is called the dominant pollutant.
+
+HimalayaAir builds a 50 by 50 IDW grid over the valley bounding box whenever enough observed or modeled points are available, and returns it to the frontend as a raster image. When too few stations are active, the system falls back to modeled grid points, then to a station-derived surface, and finally to showing station markers only, so the map always reflects the best data actually available [(Author, Year)].
+
+### 2.2 Literature Review
+
+This section looks at existing work in three areas that this project draws on: air-quality data platforms, real-time streaming pipelines, and forecasting approaches.
+
+#### 2.2.1 Air-Quality Data Platforms
+
+Several public platforms already collect and show air-quality data. OpenAQ aggregates sensor data from government and low-cost monitors around the world and exposes it through a REST API, and its third version organizes data around locations and sensors [(Author, Year)]. National agencies publish their own feeds, and commercial apps show AQI maps for end users. Research work on low-cost sensor networks has shown that these devices drift and fail in the field, so raw readings often carry gaps and offsets that must be handled before the data is shown to anyone [(Author, Year)].
+
+These platforms solve the collection problem well, but most of them treat their data as one stream of equal-quality numbers. The difference between a reading measured an hour ago, a reading measured yesterday, and a modeled estimate is often hidden or lost by the time it reaches a dashboard. Work on data provenance in sensor systems argues that keeping this origin information attached to every record is what makes the data trustworthy for later use [(Author, Year)]. HimalayaAir takes that idea as a first-class requirement rather than an afterthought.
+
+#### 2.2.2 Real-Time Streaming Pipelines
+
+The Lambda and Kappa architectures are the two common patterns for processing data that arrives continuously. Lambda runs a fast streaming layer and a slow batch layer side by side and merges their results, while Kappa keeps only the streaming layer and replays history through it when needed [(Author, Year)]. Studies comparing the two note that Kappa is simpler to maintain because there is one code path instead of two, which suits small teams and single machines [(Author, Year)].
+
+Published air-quality pipelines have used both patterns. Some combine Kafka with Spark for near-real-time ingestion of sensor data [(Author, Year)], and others show that message buses like Kafka handle the uneven arrival rates of environmental sensors better than direct database writes, because the bus absorbs bursts and lets consumers work at their own pace [(Author, Year)]. HimalayaAir follows the Kappa pattern. Every reading, whether live, backfilled, or replayed, passes through the same Kafka topics and the same Spark job, so there is one path to test and one path to explain.
+
+#### 2.2.3 Forecasting Approaches
+
+Forecasting air quality has been studied for decades. Statistical time-series models, especially seasonal ARIMA variants, remain strong baselines for hourly pollutant series [(Author, Year)]. Machine-learning models such as gradient boosting and recurrent neural networks can beat them when enough training data and good input features exist [(Author, Year)], but they degrade quickly when inputs go missing, which is common with free public weather feeds.
+
+##### 2.2.3.1 SARIMAX with Weather Covariates
+
+SARIMAX extends the ARIMA family with a seasonal term and with exogenous inputs, meaning outside variables that influence the series but are forecast separately [(Author, Year)]. For air quality, temperature, humidity, wind, and precipitation are the usual exogenous inputs, because weather drives dispersion, trapping, and washout of pollutants [(Author, Year)]. A SARIMAX model needs a reasonably long aligned history of the target and the inputs. When that history exists, it gives interpretable coefficients and honest confidence intervals.
+
+##### 2.2.3.2 Persistence and Bias-Adjusted Modeled Fallback
+
+Two simpler approaches matter when history is short. Persistence forecasting assumes tomorrow looks like today. It is weak over long horizons but hard to beat over the next few hours, and it is often used as the baseline that any fancier model must beat [(Author, Year)]. Bias adjustment is a different trick. Modeled air-quality forecasts, such as those from CAMS-based feeds, have systematic offsets compared to ground sensors, and subtracting the median offset computed over a recent overlap window improves them noticeably [(Author, Year)]. HimalayaAir combines these ideas. It runs SARIMAX when history permits, falls back to a bias-adjusted modeled forecast when only the modeled feed is complete, and falls back to persistence when nothing else is reliable. Each forecast records which model produced it and why.
