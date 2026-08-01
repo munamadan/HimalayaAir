@@ -2,6 +2,20 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Documentation - FYP Report Outline - 2026-07-31
+
+### Files changed
+
+- `fyp-report-outline.md`: Added a planning outline for the HimalayaAir final-year project report, derived from the structural pattern of `docs_reference/ProctiNetra Project Report.docx` (senior report) and tailored to the HimalayaAir architecture in `docs/himalayaair-system-overview.md`.
+
+### Reason
+
+A report outline was needed before drafting the FYPR document so chapters, figures, tables, and the Appendix I screenshot gallery follow a defended senior pattern rather than being improvised during writing.
+
+### Impact
+
+No code, schema, or runtime behavior touched. The outline fixes front-matter order, chapter/section numbering, figure insertion points (Figs 1-18), table insertion points (Tables 1-4), and the Appendix I screenshot map reusing `docs/screenshots/`.
+
 ## Post-Phase-14 Always-On Last-Known AQI Heatmap - 2026-07-26
 
 ### Files changed
