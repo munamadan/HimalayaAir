@@ -2,6 +2,20 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Documentation - FYP Report Draft: References and Citations - 2026-08-02
+
+### Files changed
+
+- `fyp-report-draft.md`: Replaced all 32 `[(Author, Year)]` placeholders with IEEE-style `[n]` citations, added data-source citations for Open-Meteo and NASA FIRMS, wrote the 20-entry References section before Appendix I, and updated the current-state line.
+
+### Reason
+
+The report draft still used author-year placeholders in the text and had no reference list, so it could not be converted to the defended senior report format that requires IEEE numbered citations.
+
+### Impact
+
+Documentation only; no code, schema, or runtime behavior touched. Citations map to real verifiable sources (official platform documentation, EPA technical documents, and standard texts).
+
 ## Documentation - FYP Report Draft: Figures and Appendix I - 2026-08-02
 
 ### Files changed
