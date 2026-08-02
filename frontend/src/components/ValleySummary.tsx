@@ -46,7 +46,7 @@ export function ValleySummary({
 
       <button type="button" className="inspector-primary-action" onClick={onOpenForecast}>
         <CalendarClock size={18} aria-hidden="true" />
-        Plan with the 72-hour forecast
+        Plan with the 48-hour forecast
       </button>
 
       <dl className="inspector-stats">

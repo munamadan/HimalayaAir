@@ -102,7 +102,7 @@ function App() {
   );
   const forecastBasisMessage = forecastStation
     ? `Forecast for ${forecastStation.name}.`
-    : 'Choose a station to view the 72-hour forecast.';
+    : 'Choose a station to view the 48-hour forecast.';
   const inspectorOpen = isMobile || inspectorVisibility === 'open';
   const windAvailable = dashboard.windGrid !== null;
   const activeInterpolation = timeline.activeInterpolation;
@@ -482,7 +482,7 @@ function getInspectorHeading(
     return { eyebrow: 'Station detail', title: selectedStation.name };
   }
   if (mode === 'forecast') {
-    return { eyebrow: 'Plan ahead', title: '72-hour forecast' };
+    return { eyebrow: 'Plan ahead', title: '48-hour forecast' };
   }
   if (mode === 'history') {
     return { eyebrow: 'Explore patterns', title: 'Air quality history' };

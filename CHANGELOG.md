@@ -2,6 +2,24 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Documentation - FYP Report Draft: Figures and Appendix I - 2026-08-02
+
+### Files changed
+
+- `fyp-report-draft.md`: Reworded Chapter 4.1.2 to show live screenshots instead of wireframes, embedded generated Figures 13, 17, and 18 from `docs/figures/`, embedded Figure 14-16 screenshot paths, wrote the Appendix I Screenshots gallery (Figures 19-23), and updated the current-state line.
+- `docs/figures/figure-13-flowchart.png`: New end-to-end system flowchart.
+- `docs/figures/figure-17-evaluation-curve.png`: New 48-hour forecast evaluation curve (MAE 14, RMSE 19, matching the Chapter 5 verification table).
+- `docs/figures/figure-18-provenance-distribution.png`: New provenance mode distribution chart (LIVE_OBSERVED 9%, RECENT_OBSERVED 46%, MODELED_BASELINE 38%, REPLAY_DEMO 5%, station-only and no-data 2%).
+- `frontend/src/App.tsx`, `frontend/src/components/ForecastPanel.tsx`, `frontend/src/components/ValleySummary.tsx`: Changed 72-hour forecast labels and slice bounds to 48 hours so the UI matches the 48-hour forecast horizon.
+
+### Reason
+
+The report draft needed real figure assets and an interface-design section that mirrors the ProctiNetra senior report pattern, and the frontend still labeled the forecast as 72 hours after the horizon was set to 48 hours.
+
+### Impact
+
+Frontend label and slice bound changes only; no schema, API, or data changes. Live screenshots in `docs/screenshots/` are provisional captures and will be replaced with final captures.
+
 ## Documentation - FYP Report Outline - 2026-07-31
 
 ### Files changed

@@ -65,7 +65,7 @@ export function ForecastPanel({
 
   const chartRows = useMemo(
     () =>
-      (forecast?.forecasts ?? []).slice(0, 72).map((point) => ({
+      (forecast?.forecasts ?? []).slice(0, 48).map((point) => ({
         label: new Intl.DateTimeFormat(undefined, { day: '2-digit', hour: '2-digit' }).format(new Date(point.target_timestamp)),
         predicted: point.predicted_aqi,
         lower: point.lower_bound ?? point.predicted_aqi,
@@ -74,7 +74,7 @@ export function ForecastPanel({
     [forecast?.forecasts],
   );
 
-  const bestWindows = useMemo(() => bestSixHourWindows((forecast?.forecasts ?? []).slice(0, 72), 3), [forecast?.forecasts]);
+  const bestWindows = useMemo(() => bestSixHourWindows((forecast?.forecasts ?? []).slice(0, 48), 3), [forecast?.forecasts]);
 
   return (
     <section
@@ -86,7 +86,7 @@ export function ForecastPanel({
         <div className="section-heading">
           <div>
             <span className="eyebrow">Forecast</span>
-            <h2>72-hour air quality outlook</h2>
+            <h2>48-hour air quality outlook</h2>
           </div>
           <span className="chart-card__meta">{pollutant.toUpperCase()}</span>
         </div>
@@ -118,11 +118,11 @@ export function ForecastPanel({
               <dd>{chartRows[0]?.predicted ?? 'not available'}</dd>
             </div>
             <div>
-              <dt>72-hour low</dt>
+              <dt>48-hour low</dt>
               <dd>{chartRows.length > 0 ? Math.min(...chartRows.map((row) => row.predicted)) : 'not available'}</dd>
             </div>
             <div>
-              <dt>72-hour high</dt>
+              <dt>48-hour high</dt>
               <dd>{chartRows.length > 0 ? Math.max(...chartRows.map((row) => row.predicted)) : 'not available'}</dd>
             </div>
             <div>
