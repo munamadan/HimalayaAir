@@ -2,6 +2,20 @@
 
 All meaningful project changes are recorded here so future Codex sessions can resume with the implemented phase history.
 
+## Documentation - FYP Report Draft: Style Cleanup - 2026-08-03
+
+### Files changed
+
+- `fyp-report-draft.md`: Reworded 16 trailing `, so` clauses and 1 trailing `, which` clause into separate sentences per the report style guide, corrected reference [9] to the May 2024 AQI technical assistance document (EPA-454/B-24-002), and updated the current-state line.
+
+### Reason
+
+The final consistency check found the style scan was vacuous (it matched a `<SECTION>` marker that does not exist in the file), and a real scan of the body revealed remaining `, so` and `, which` clauses plus an inaccurate EPA document number on the 2024 AQI reference.
+
+### Impact
+
+Documentation only; no code, schema, or runtime behavior touched. Full-body style scan now reports clean (no em dashes, no banned words, no trailing `, so`/`, which` clauses).
+
 ## Documentation - FYP Report Draft: References and Citations - 2026-08-02
 
 ### Files changed
