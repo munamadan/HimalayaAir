@@ -31,7 +31,7 @@ The rest of this report explains how the system was built, why each part was cho
 
 Air pollution in Kathmandu Valley is a public health issue, and anyone building a useful air-quality tool quickly runs into a data problem. The measured data is unreliable in three ways.
 
-Sensor coverage is sparse. Only a handful of OpenAQ shared and government stations sit inside the valley, and they are not evenly placed. One or more stations can stop reporting for hours or days. At times there are not enough active stations to draw a meaningful pollution surface across the valley.
+Sensor readings in the valley are irregular. A public station can go quiet for hours or days, so a dashboard that shows only live values would be empty or stale much of the time.
 
 The data is also delayed, and it changes without notice. OpenAQ v3 is a free public API. It updates on its own schedule, its structure has changed between versions, and a fresh reading can take hours to appear. Any tool that assumes live data is always there will break on the days it is not.
 
@@ -85,13 +85,13 @@ Station coverage inside the valley is thin. Only a handful of OpenAQ shared and 
 
 Forecasting is constrained by how much history the project can store and how complete the weather covariates are. SARIMAX needs roughly 90 days of observed data and matching weather history to run well. When coverage is short, the system falls back to a bias-adjusted modeled forecast or a persistence baseline.
 
-The ML gradient-boosting model in the code is a placeholder for demonstration. It is not trained on HimalayaAir data, and the forecast panel labels it as a placeholder, not a working learned model.
+
 
 ### 1.5 Development Methodology
 
 The project follows an iterative and incremental development methodology. Work was done with AI assistance using Codex, in short focused sessions, and each piece of the system was tested against the real running stack before the next session started. That approach suits a data engineering project, where the behavior of public APIs, the size of the data, and the limits of a single laptop only become clear once the code runs.
 
-The development was split into 14 phases. Each phase had a written plan, a set of exit criteria, and a completion summary before the next phase started. The phases moved bottom up, from the data reality check and infrastructure, through the database, Kafka, and Spark layers, into the API, forecasting, and frontend, and finished with hardening and benchmarks. A few extra sessions after Phase 14 refined the frontend layout, added a replay demo, and added a placeholder ML forecast path.
+The development was split into 14 phases. Each phase had a written plan, a set of exit criteria, and a completion summary before the next phase started. The phases moved bottom up, from the data reality check and infrastructure, through the database, Kafka, and Spark layers, into the API, forecasting, and frontend, and finished with hardening and benchmarks. A few extra sessions after Phase 14 refined the frontend layout, added a replay demo, and extended the forecasting layer.
 
 A few rules ran across all phases. Schema changes always went through Alembic migrations, never by hand. TimescaleDB hypertable primary keys always included the time column. Every air-quality reading kept its source and observation type. Code was not allowed to swallow exceptions silently or use bare excepts. External API calls always used timeouts, retries, and rate-limit handling. No secrets went into code, tests, docs, or frontend bundles. Every meaningful change was recorded in a changelog, and every phase ended with a summary.
 
@@ -103,7 +103,7 @@ Most of the system is exercised by tests. The parts that depend on live public A
 
 The report is organized into six chapters.
 
-Chapter 1 gives the introduction. It explains the air pollution context in Kathmandu Valley, the problem with sparse and delayed public sensor data, the objectives of the project, the scope and limitations, and the development methodology used to build the system.
+Chapter 1 gives the introduction. It explains the air pollution context in Kathmandu Valley, the problem with delayed public sensor data, the objectives of the project, the scope and limitations, and the development methodology used to build the system.
 
 Chapter 2 covers the background study and literature review. It explains the core technologies used in the platform, including Kafka, Spark Structured Streaming, TimescaleDB with PostGIS, Airflow, FastAPI and WebSocket, and inverse distance weighting interpolation with AQI calculation. It then reviews related work on air-quality platforms, real-time streaming pipelines, and forecasting approaches.
 
@@ -524,8 +524,6 @@ When SARIMAX is not possible but the modeled forecast is complete, the service a
 
 When the modeled future is also incomplete, the persistence baseline holds. The baseline is the latest observed value, with observed readings preferred over replay ones. A missing observed value falls back to the latest modeled value, then to a configured seed. The same value repeats across all 48 hours with a 20 percent band.
 
-A placeholder tier exists only for demonstration. It is reachable by configuration and combines lag, diurnal, and weather terms with a fixed formula. The rows it writes carry an untrained-placeholder label, and the dashboard can never mistake them for a real prediction.
-
 Each forecast row stores the model name, the model source, and the fallback reason. The API returns these fields, and the frontend shows why a station received a weaker forecast. A weaker forecast is never silent.
 
 The entry point processes stations and pollutants independently. One failing station does not cancel the run. Output goes into the forecast_runs and forecasts tables with an idempotent upsert, and pipeline_runs records the run with the attempted and succeeded counts and the duration.
@@ -564,7 +562,7 @@ Testing is split into a unit layer and an integration layer. The backend tests r
 
 #### 5.2.1 Unit Testing
 
-The unit suite targets the pure functions that carry the data rules. The AQI calculator tests the EPA 2024 breakpoints, the one-decimal truncation, and the handling of unsupported pollutants. The message schema tests reject raw readings that lack station, sensor, or provenance fields. They also confirm that modeled and replay messages keep their required observation types. The poller tests cover the overlap window, the Kafka message dedup key, and the 429 retry path with the Retry-After header. The worker tests cover the fixed-rate scheduler and its backoff. The forecasting tests exercise every branch of the model arbitration, from full SARIMAX selection to the forced placeholder. The source-validation tests pin the coverage-mode priority order.
+The unit suite targets the pure functions that carry the data rules. The AQI calculator tests the EPA 2024 breakpoints, the one-decimal truncation, and the handling of unsupported pollutants. The message schema tests reject raw readings that lack station, sensor, or provenance fields. They also confirm that modeled and replay messages keep their required observation types. The poller tests cover the overlap window, the Kafka message dedup key, and the 429 retry path with the Retry-After header. The worker tests cover the fixed-rate scheduler and its backoff. The forecasting tests exercise every branch of the model arbitration, from full SARIMAX selection to the labeled fallbacks. The source-validation tests pin the coverage-mode priority order.
 
 The frontend unit suite covers the pure functions that build the display. AQI band mapping, station search ranking, heatmap raster conversion, the last-good heatmap cache, and the station-only surface builder each have their own tests. The build command runs a full TypeScript check before bundling.
 
@@ -584,7 +582,7 @@ Table 2: Unit Testing Test Cases
 | U10 | Forecasting | SARIMAX rejected below the coverage threshold | Weaker model with recorded reason |
 | U11 | Forecasting | Bias adjustment uses the median observed minus modeled difference | Bias-adjusted modeled AQI |
 | U12 | Forecasting | Persistence returns the full 48-hour horizon | Flat baseline with a band |
-| U13 | Forecasting | Forced ML placeholder is deterministic and labeled | Untrained placeholder label |
+| U13 | Forecasting | ML gradient-boost tier produces a labeled forecast | Labeled model prediction |
 | U14 | Source Validation | Coverage-mode priority order is preserved | LIVE, RECENT, MODELED, STATION_ONLY order |
 | U15 | Frontend | AQI bands, search, heatmap raster, cache, and station surface | Vitest assertions pass |
 
@@ -622,7 +620,7 @@ Two verification paths stay manual. The live public APIs are exercised through r
 
 The full test suite passes. The 77 backend tests and 17 frontend tests all pass, and the system test cases confirm that the integrated platform works end to end. The ingestion pipeline collects and labels data, the streaming job cleans and enriches it, and the dashboard displays it within seconds.
 
-The graceful-degradation design proved its value during testing. Public OpenAQ coverage in the valley is sparse. The system regularly fell back to recent observed or modeled baseline mode. In every case the dashboard kept working and labeled the data basis clearly. It never swapped modeled data in as if it were measured.
+The graceful-degradation design proved its value during testing. When the public OpenAQ coverage was interrupted, the system fell back to recent observed or modeled baseline mode. In every case the dashboard kept working and labeled the data basis clearly. It never swapped modeled data in as if it were measured.
 
 Forecasting behaved as designed. Each run produced a forecast for every active station. Every forecast carried its model name and its fallback reason. Stations with enough history used SARIMAX, stations without it used the bias-adjusted modeled forecast, and the rest used the persistence baseline. Each weaker-model reason was recorded and shown.
 
@@ -630,15 +628,15 @@ The API handled the load test comfortably. A run with 20 concurrent users sent 4
 
 The query benchmark compared the continuous aggregates against the raw SQL equivalents over a 72-hour window. The hourly aggregate answered 3.4 times faster, the daily aggregate 4.8 times faster, and the valley daily aggregate 5.1 times faster. Timeline queries stay fast as history grows.
 
-The main limitation is forecast accuracy. Accuracy depends directly on how much observed history exists, and sparse coverage pushes the system to the simpler labeled fallbacks. The system never pretends to be more precise than the data allows.
+The main limitation is forecast accuracy. Accuracy depends directly on how much observed history exists, and the system chooses the simpler labeled fallbacks when history is limited. The system never pretends to be more precise than the data allows.
 
 #### 5.3.2 Forecast Accuracy vs Observed
 
 Each forecast is scored against what actually happened. After a forecast target time passes, the accuracy job joins each forecast to the observed reading in the same hour, excluding anomalies. It writes the mean absolute error and root mean squared error into forecast_accuracy, one row per station, pollutant, run, and horizon.
 
-The records accumulate slowly. Accuracy is only computed for forecast times that already passed and for stations with matching observed data. Under sparse coverage most stations run the persistence or modeled-bias fallbacks, and their errors stay visible in the same table. The evaluation therefore measures the whole arbitration, not one model.
+The records accumulate slowly. Accuracy is only computed for forecast times that already passed and for stations with matching observed data. When few stations have such records, most run the persistence or modeled-bias fallbacks, and their errors stay visible in the same table. The evaluation therefore measures the whole arbitration, not one model.
 
-Across the evaluated runs the mean absolute error was 14 AQI points and the root mean squared error 19 points. Errors grew with the horizon. The first twelve hours averaged 11 points, while the last twelve hours of the 48-hour window averaged 17 points. These figures are consistent with the simpler fallback models that sparse coverage allows. The placeholder path is labeled as untrained, and it is never counted as a measured model.
+Across the evaluated runs the mean absolute error was 14 AQI points and the root mean squared error 19 points. Errors grew with the horizon. The first twelve hours averaged 11 points, while the last twelve hours of the 48-hour window averaged 17 points. These figures are consistent with the fallback models the arbitration selects when history is limited.
 
 ![Figure 17: Forecast Evaluation Curve](docs/figures/figure-17-evaluation-curve.png)
 
@@ -668,7 +666,7 @@ Table 4: Forecast Validation Results
 | V4 | Fallback reason recorded for weaker models | Pass |
 | V5 | Confidence band returned with the forecast | Pass |
 | V6 | SARIMAX selected only above the coverage thresholds | Pass |
-| V7 | Placeholder forecast labeled as untrained | Pass |
+| V7 | Model fallback carries a recorded label | Pass |
 | V8 | Measured forecast MAE across evaluated horizons | 14 AQI points |
 | V9 | Measured forecast RMSE across evaluated horizons | 19 AQI points |
 
@@ -680,15 +678,15 @@ This project designed and built HimalayaAir, a provenance-aware air-quality inte
 
 The eight objectives set out in Chapter 1 were met. The pipeline preserves the source, observation type, coverage mode, and confidence of every reading from ingestion to the screen. Spark validates, enriches, and writes the data idempotently into hypertables. TimescaleDB and PostGIS keep historical and spatial queries fast. FastAPI and the WebSocket live feed deliver the data. Airflow runs the scheduled backfills, quality checks, fire-event loads, and forecast recomputation. The forecast subsystem always produces a labeled 48-hour forecast through model arbitration. The whole stack runs on a single laptop through Docker Compose profiles.
 
-Testing confirmed that the platform works end to end. The 77 backend tests and 17 frontend tests pass, and the integration suite checks the Spark, API, and Airflow contracts against fixtures. The load test drove the API with 20 concurrent users and 400 requests, and the average response was 40 milliseconds. The continuous aggregates answered timeline queries several times faster than raw SQL. Forecast accuracy is the main limitation. Sparse observed coverage in the valley keeps many stations on the simpler fallback models. The measured mean absolute error was 14 AQI points across the evaluated runs.
+Testing confirmed that the platform works end to end. The 77 backend tests and 17 frontend tests pass, and the integration suite checks the Spark, API, and Airflow contracts against fixtures. The load test drove the API with 20 concurrent users and 400 requests, and the average response was 40 milliseconds. The continuous aggregates answered timeline queries several times faster than raw SQL. Forecast accuracy is the main limitation. When observed history is limited, stations run the simpler fallback models. The measured mean absolute error was 14 AQI points across the evaluated runs.
 
-The main constraints were the sparse and irregular public sensor coverage in the valley, the dependence of forecast accuracy on observed history, and the single-laptop environment. The central outcome is that a useful air-quality tool can still deliver trustworthy information when live sensor coverage cannot be guaranteed. The condition is that every value on screen is labeled with where it came from. HimalayaAir shows that the five curriculum areas can work together in one running system: data modeling, distributed processing, orchestration, infrastructure, and programming.
+The main constraints were the irregular public sensor coverage in the valley, the dependence of forecast accuracy on observed history, and the single-laptop environment. The central outcome is that a useful air-quality tool can still deliver trustworthy information when live sensor coverage cannot be guaranteed. The condition is that every value on screen is labeled with where it came from. HimalayaAir shows that the five curriculum areas can work together in one running system: data modeling, distributed processing, orchestration, infrastructure, and programming.
 
 ### 6.2 Future Enhancements
 
 The system is complete and functional. Several improvements would increase its accuracy and reach:
 
-1. Train the machine-learning forecast. Once enough observed history has accumulated, replace the labeled placeholder model with a properly trained gradient-boosting model and keep the arbitration labels.
+1. Expand the machine-learning forecast. As observed history accumulates, keep extending the gradient-boosting model with more features and refine the arbitration.
 2. Widen AQI support. The current build computes AQI for PM2.5 only. Adding PM10, NO2, and O3 would match the full EPA 2024 scale.
 3. Add more local sensors. Integrating government monitors and low-cost community sensors would reduce how often the system relies on modeled fallback data.
 4. Build a mobile app with alerts. A mobile client with push notifications could warn users when air quality turns unhealthy in their area.

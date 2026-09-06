@@ -199,5 +199,5 @@ Tables (numbered 1 through 4):
 
 - Confirm final figure numbering once figures are actually produced; the indices above assume the listed insertion order.
 - Decide whether wireframe mockups (Figs 14-16) will be hand-drawn, Figma, or Excalidraw; they are intentionally separate from the live screenshots in Appendix I.
-- Capture the 5 placeholder PNGs already declared in `docs/screenshots/README.md` plus the optional mobile capture before final export.
+- Capture the 5 PNG screenshots already declared in `docs/screenshots/README.md` plus the optional mobile capture before final export.
 - Generate `LIST OF FIGURES`, `LIST OF TABLES`, and `TABLE OF CONTENTS` from Heading and Caption styles at the end, replacing any manually typed drafts.
