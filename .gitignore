@@ -33,3 +33,25 @@ docs/
 CHANGELOG.md
 README_PHASE_WORKFLOW.md
 prompts/
+
+# Local report and defense clutter (keep remote clean)
+*.pdf
+!references/FYP-Proposal-Dipan-Kharel.pdf
+main.docx
+main.tex
+main.aux
+main.toc
+main.lof
+main.lot
+main.out
+main.fls
+main.fdb_latexmk
+chapters/
+diagram-folders/
+images/
+screenshots/
+new-screenshots/
+himalayaair-architecture.svg
+docs_reference/
+fyp-batch-input.txt
+fyp-report-final.md
